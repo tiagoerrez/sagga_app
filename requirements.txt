@@ -1,0 +1,7 @@
+arch>=7.1.0
+cryptocompare>=0.7.6
+matplotlib>=3.8.4
+numpy>=1.20.3
+pandas>=1.4.4
+scipy>=1.7.1
+streamlit>=1.32.0
