@@ -92,7 +92,7 @@ def main():
                     if st.button("Calculate GMV Weights"):
                         with st.spinner("Calculating GMV weights..."):
                             try:
-                                weights = ct.get_gmv_weights(coins, version='v2')
+                                weights = ct.get_gmv_weights(coins, version='v3')
                                 st.subheader("Global Minimum Variance Portfolio")
                                 display_weights(weights)
                             except Exception as e:
