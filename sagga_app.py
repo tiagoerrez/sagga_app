@@ -86,7 +86,7 @@ def main():
             if len(coins) < 2:
                 st.error("Please enter at least 2 cryptocurrencies for portfolio optimization.")
             else:
-                col1, col2, col3 = st.columns(3)
+                col1, col2 = st.columns(2)
                 
                 with col1:
                     if st.button("Calculate GMV Weights"):
@@ -115,28 +115,6 @@ def main():
                                 display_weights(weights_series)
                             except Exception as e:
                                 st.error(f"Error calculating MSR weights: {str(e)}")
-                
-                with col3:
-                    if st.button("Calculate Optimal Weights"):
-                        with st.spinner("Calculating Optimal weights..."):
-                            try:
-                                # Get returns and covariance
-                                returns = cct.get_normal_returns_v2(coins)
-                                er = returns.mean() * 365
-                                cov = returns.cov() * 365
-                                
-                                # Calculate optimal weights for a range of target returns
-                                n_points = 20
-                                weights_list = ct.optimal_weights(n_points, er, cov)
-                                
-                                # Select the middle point as an example balanced portfolio
-                                mid_weights = weights_list[n_points//2]
-                                weights_series = pd.Series(mid_weights, index=coins)
-                                
-                                st.subheader("Balanced Optimal Portfolio")
-                                display_weights(weights_series)
-                            except Exception as e:
-                                st.error(f"Error calculating optimal weights: {str(e)}")
         
         except Exception as e:
             st.error(f"Error processing input: {str(e)}")
