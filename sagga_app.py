@@ -429,7 +429,7 @@ def main():
         
         st.subheader("Returns vs Volatility")
         log_scale = st.checkbox("Log Scale", value=False, key="rv_log")
-        fig = plot_returns_vs_volatility(returns, version, log_scale=log_scale)
+        fig = plot_risk_adjusted_returns(returns, version, log_scale=log_scale)
         st.pyplot(fig, use_container_width=True)
 
     with tab3:
