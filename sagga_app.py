@@ -269,7 +269,7 @@ def plot_price_chart(historical_data, coins, currency='USD', selected_coin=None,
     return fig
 
 # Updated Returns vs Volatility (Scatter with Transparency)
-def plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=0.3, start_date=None, end_date=None, log_scale=False):
+def plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=0.03, start_date=None, end_date=None, log_scale=False):
     """
     Plot the rolling Sharpe ratio (risk-adjusted return) for each asset over time.
     
@@ -278,35 +278,44 @@ def plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=0.3, 
     - version: 'v2' (DataFrame) or 'v3' (dict).
     - window: Rolling window size in days.
     - risk_free_rate: Annualized risk-free rate (default: 3%).
+    - start_date: Start date for the plot.
+    - end_date: End date for the plot.
     - log_scale: Whether to use a logarithmic y-scale.
     """
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     colors = ['cyan', 'yellow', 'purple']  # Colors for BTC, ETH, XRP
     
-    if version == 'v2':
-        for i, coin in enumerate(returns.columns):
-            roll_ret = returns[coin].rolling(window).mean() * 365  # Annualized return
-            roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)  # Annualized volatility
-            sharpe_ratio = (roll_ret - risk_free_rate) / roll_vol  # Rolling Sharpe ratio
-            sharpe_ratio.plot(ax=ax, color=colors[i], label=coin)
-    else:
-        for i, coin in enumerate(returns.keys()):
-            roll_ret = returns[coin].rolling(window).mean() * 365
-            roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)
-            sharpe_ratio = (roll_ret - risk_free_rate) / roll_vol
-            sharpe_ratio.plot(ax=ax, color=colors[i], label=coin)
+    try:
+        if version == 'v2':
+            # Filter returns for the date range before calculations
+            filtered_returns = returns.loc[start_date:end_date] if start_date and end_date else returns
+            for i, coin in enumerate(filtered_returns.columns):
+                roll_ret = filtered_returns[coin].rolling(window).mean() * 365  # Annualized return
+                roll_vol = filtered_returns[coin].rolling(window).std() * np.sqrt(365)  # Annualized volatility
+                sharpe_ratio = (roll_ret - risk_free_rate) / roll_vol  # Rolling Sharpe ratio
+                sharpe_ratio.plot(ax=ax, color=colors[i], label=coin)
+        else:
+            # For version 'v3', filter each coin's returns
+            for i, coin in enumerate(returns.keys()):
+                coin_returns = returns[coin].loc[start_date:end_date] if start_date and end_date else returns[coin]
+                roll_ret = coin_returns.rolling(window).mean() * 365
+                roll_vol = coin_returns.rolling(window).std() * np.sqrt(365)
+                sharpe_ratio = (roll_ret - risk_free_rate) / roll_vol
+                sharpe_ratio.plot(ax=ax, color=colors[i], label=coin)
     
-    # Add a horizontal line at Sharpe ratio = 0 for reference
-    ax.axhline(0, color='white', linestyle='--', alpha=0.3, label='Sharpe = 0')
-    
-    ax.set_title(f'Rolling {window}-Day Sharpe Ratio (Risk-Adjusted Returns)')
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Sharpe Ratio')
-    ax.legend()
-    ax.grid(True, linestyle='--', alpha=0.3)
-    if log_scale:
-        ax.set_yscale('log')
+        # Add a horizontal line at Sharpe ratio = 0 for reference
+        ax.axhline(0, color='white', linestyle='--', alpha=0.3, label='Sharpe = 0')
+        
+        ax.set_title(f'Rolling {window}-Day Sharpe Ratio (Risk-Adjusted Returns)')
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Sharpe Ratio')
+        ax.legend()
+        ax.grid(True, linestyle='--', alpha=0.3)
+        if log_scale:
+            ax.set_yscale('log')
+    except Exception as e:
+        st.error(f"Error plotting risk-adjusted returns: {str(e)}")
     
     return fig
 
@@ -427,7 +436,7 @@ def main():
         
         st.subheader("Returns vs Volatility")
         log_scale = st.checkbox("Log Scale", value=False, key="rv_log")
-        fig = plot_risk_adjusted_returns(returns, version, risk_free_rate=risk_free_rate, start_date=start_date, end_date=end_date, log_scale=log_scale)
+        fig = plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=risk_free_rate, start_date=start_date, end_date=end_date, log_scale=log_scale)
         st.pyplot(fig, use_container_width=True)
 
     with tab3:
