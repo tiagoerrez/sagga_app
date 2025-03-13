@@ -359,7 +359,7 @@ def main():
             if plot == "Efficient Frontier":
                 fig = plot_efficient_frontier(er, cov, risk_free_rate, log_scale)
             elif plot == "Correlation Matrix":
-                fig = plot_correlation_matrix(returns, version, log_scale)
+                fig = plot_correlation_matrix(returns, version)
             elif plot == "Volatility":
                 asset = st.selectbox("Select Asset for Volatility", ['Portfolio'] + coins, key=f"vol_{plot}")
                 port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
