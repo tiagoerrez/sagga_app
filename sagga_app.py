@@ -413,7 +413,7 @@ def main():
                 port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1)
                 fig = plot_monte_carlo(port_returns, n_scenarios, n_years, log_scale=log_scale)
             elif plot == "Returns vs Volatility":
-                fig = plot_returns_vs_volatility(returns, version, log_scale=log_scale)
+                fig = plot_risk_adjusted_returns(returns, version, log_scale=log_scale)
             st.pyplot(fig, use_container_width=True)
 
     # New Price Analysis Tab
