@@ -242,60 +242,72 @@ def plot_volatility(returns, asset_name=None, window=30, log_scale=False):
     return fig
 
 # New Price Chart
-def plot_price_chart(coins, currency='USD', selected_coin=None ,start_date=None, end_date=None, log_scale=False):
+# Updated plot_price_chart to use pre-fetched data
+def plot_price_chart(historical_data, coins, currency='USD', selected_coin=None, start_date=None, end_date=None, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     
-    if selected_coin is None:
-        for coin in coins:
-            prices = cct.get_historical_v2([coin], currency=currency).loc[start_date:end_date, f'{coin}']
-            prices.plot(ax=ax, label=coin)
-    else:
-        prices = cct.get_historical_v2(coins, currency=currency).loc[start_date:end_date, f'{selected_coin}']
-        prices.plot(ax=ax, label=selected_coin)
+    try:
+        if selected_coin is None:
+            for coin in coins:
+                prices = historical_data.loc[start_date:end_date, f'{coin}']
+                prices.plot(ax=ax, label=coin)
+        else:
+            prices = historical_data.loc[start_date:end_date, f'{selected_coin}']
+            prices.plot(ax=ax, label=selected_coin)
 
-    ax.set_title(f'Price vs {currency}')
-    ax.set_xlabel('Date')
-    ax.set_ylabel(f'Price ({currency})')
-    ax.legend()
-    ax.grid(True, linestyle='--', alpha=0.3)
-    if log_scale:
-        ax.set_yscale('log')
+        ax.set_title(f'Price vs {currency}')
+        ax.set_xlabel('Date')
+        ax.set_ylabel(f'Price ({currency})')
+        ax.legend()
+        ax.grid(True, linestyle='--', alpha=0.3)
+        if log_scale:
+            ax.set_yscale('log')
+    except Exception as e:
+        st.error(f"Error plotting price data: {str(e)}")
+    
     return fig
 
 # Updated Returns vs Volatility (Scatter with Transparency)
-def plot_returns_vs_volatility(returns, version, window=30, log_scale=False):
+def plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=0.03, log_scale=False):
+    """
+    Plot the rolling Sharpe ratio (risk-adjusted return) for each asset over time.
+    
+    Parameters:
+    - returns: DataFrame or dict of returns (v2 or v3 format).
+    - version: 'v2' (DataFrame) or 'v3' (dict).
+    - window: Rolling window size in days.
+    - risk_free_rate: Annualized risk-free rate (default: 3%).
+    - log_scale: Whether to use a logarithmic y-scale.
+    """
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     colors = ['cyan', 'yellow', 'purple']  # Colors for BTC, ETH, XRP
+    
     if version == 'v2':
         for i, coin in enumerate(returns.columns):
-            roll_ret = returns[coin].rolling(window).mean() * 365
-            roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)
-            # Scatter plot with transparency
-            ax.scatter(roll_vol, roll_ret, alpha=0.2, color=colors[i], label=coin, s=10)
-            # Add a trend line (rolling mean of the scatter points)
-            df = pd.DataFrame({'vol': roll_vol, 'ret': roll_ret}).dropna()
-            trend_vol = df['vol'].rolling(50, min_periods=1).mean()
-            trend_ret = df['ret'].rolling(50, min_periods=1).mean()
-            ax.plot(trend_vol, trend_ret, color=colors[i], alpha=0.8, linewidth=2)
+            roll_ret = returns[coin].rolling(window).mean() * 365  # Annualized return
+            roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)  # Annualized volatility
+            sharpe_ratio = (roll_ret - risk_free_rate) / roll_vol  # Rolling Sharpe ratio
+            sharpe_ratio.plot(ax=ax, color=colors[i], label=coin)
     else:
         for i, coin in enumerate(returns.keys()):
             roll_ret = returns[coin].rolling(window).mean() * 365
             roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)
-            ax.scatter(roll_vol, roll_ret, alpha=0.2, color=colors[i], label=coin, s=10)
-            df = pd.DataFrame({'vol': roll_vol, 'ret': roll_ret}).dropna()
-            trend_vol = df['vol'].rolling(50, min_periods=1).mean()
-            trend_ret = df['ret'].rolling(50, min_periods=1).mean()
-            ax.plot(trend_vol, trend_ret, color=colors[i], alpha=0.8, linewidth=2)
-    ax.set_title(f'Rolling {window}-Day Returns vs Volatility (Annualized)')
-    ax.set_xlabel('Annualized Volatility')
-    ax.set_ylabel('Annualized Return')
+            sharpe_ratio = (roll_ret - risk_free_rate) / roll_vol
+            sharpe_ratio.plot(ax=ax, color=colors[i], label=coin)
+    
+    # Add a horizontal line at Sharpe ratio = 0 for reference
+    ax.axhline(0, color='white', linestyle='--', alpha=0.3, label='Sharpe = 0')
+    
+    ax.set_title(f'Rolling {window}-Day Sharpe Ratio (Risk-Adjusted Returns)')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Sharpe Ratio')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
     if log_scale:
-        ax.set_xscale('log')
         ax.set_yscale('log')
+    
     return fig
 
 def main():
@@ -408,10 +420,11 @@ def main():
     with tab2:
         st.header("Price Analysis")
         currency = st.selectbox("Select Currency", ["USD", "BTC"], index=0)
-        selected_coin = st.selectbox("Select Coin", coins, key="price_coin_select")  # Added coin filter
-        st.subheader(f"Price vs {currency} for {selected_coin}")
+        historical_data = cct.get_historical_v2(coins, currency=currency)  # Fetch once
+        selected_coin = st.selectbox("Select Coin", coins + ["All"], key="price_coin_select")
+        st.subheader(f"Price vs {currency}" + (f" for {selected_coin}" if selected_coin != "All" else ""))
         log_scale = st.checkbox("Log Scale", value=False, key="price_log")
-        fig = plot_price_chart(coins, currency, selected_coin, start_date, end_date, log_scale)
+        fig = plot_price_chart(historical_data, coins, currency, None if selected_coin == "All" else selected_coin, start_date, end_date, log_scale)
         st.pyplot(fig, use_container_width=True)
         
         st.subheader("Returns vs Volatility")
