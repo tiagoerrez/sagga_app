@@ -104,7 +104,7 @@ def display_weights(weights, returns, method_name, version, risk_free_rate):
     csv = weights_df.to_csv(index=False)
     st.download_button(label=f"Download {method_name} Weights", data=csv, file_name=f"{method_name.lower()}_weights.csv", mime="text/csv")
 
-def plot_efficient_frontier(er, cov, riskfree_rate):
+def plot_efficient_frontier(er, cov, riskfree_rate, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     weights = ct.optimal_weights(50, er, cov)
@@ -133,6 +133,9 @@ def plot_efficient_frontier(er, cov, riskfree_rate):
     ax.set_ylabel('Return')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
+    if log_scale:
+        ax.set_yscale('log')
+        ax.set_xscale('log')
     return fig
 
 def plot_correlation_matrix(returns, version):
@@ -143,30 +146,25 @@ def plot_correlation_matrix(returns, version):
     ax.set_title('Correlation Matrix')
     return fig
 
-def plot_returns_distribution(returns, asset_name=None):
+# Updated Distribution Plot (removed returns plot)
+def plot_returns_distribution(returns, asset_name=None, log_scale=False):
     plt.style.use('dark_background')
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
-    
+    fig, ax = plt.subplots(figsize=(8, 4))
     if isinstance(returns, pd.Series):
-        returns.plot(ax=ax1, color='cyan')
+        sns.histplot(returns.dropna(), bins=50, ax=ax, color='cyan', stat='density', label='Actual')
     else:
-        returns.mean(axis=1).plot(ax=ax1, color='cyan')
-    ax1.set_title(f"{'Portfolio' if asset_name is None else asset_name} Returns")
-    ax1.set_xlabel('Date')
-    ax1.set_ylabel('Returns')
-    ax1.grid(True, linestyle='--', alpha=0.3)
-
-    sns.histplot(returns.dropna(), bins=50, ax=ax2, color='cyan', stat='density', label='Actual')
+        sns.histplot(returns.mean(axis=1).dropna(), bins=50, ax=ax, color='cyan', stat='density', label='Actual')
     x = np.linspace(returns.min(), returns.max(), 100)
-    ax2.plot(x, norm.pdf(x, returns.mean(), returns.std()), 'r-', label='Normal')
-    df = len(returns.dropna()) - 1
-    ax2.plot(x, t.pdf(x, 5, returns.mean(), returns.std()), 'g--', label='t-Student (df=5)')
-    ax2.set_title('Distribution')
-    ax2.legend()
-    ax2.grid(True, linestyle='--', alpha=0.3)
+    ax.plot(x, norm.pdf(x, returns.mean(), returns.std()), 'r-', label='Normal')
+    ax.plot(x, t.pdf(x, 5, returns.mean(), returns.std()), 'g--', label='t-Student (df=5)')
+    ax.set_title(f"{'Portfolio' if asset_name is None else asset_name} Returns Distribution")
+    ax.legend()
+    ax.grid(True, linestyle='--', alpha=0.3)
+    if log_scale:
+        ax.set_yscale('log')
     return fig
 
-def plot_var_cvar(returns, rolling=False, window=30):
+def plot_var_cvar(returns, rolling=False, window=30, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     if isinstance(returns, pd.DataFrame):
@@ -192,9 +190,11 @@ def plot_var_cvar(returns, rolling=False, window=30):
     ax.set_ylabel('Returns')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
+    if log_scale:
+        ax.set_yscale('log')
     return fig
 
-def plot_monte_carlo(returns, n_scenarios=100, n_years=1):
+def plot_monte_carlo(returns, n_scenarios=100, n_years=1, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     mu = returns.mean() * 365
@@ -211,11 +211,13 @@ def plot_monte_carlo(returns, n_scenarios=100, n_years=1):
     ax.set_title('Monte Carlo Simulation with Confidence Intervals')
     ax.set_xlabel('Time (days)')
     ax.set_ylabel('Price')
-    ax.legend()  # Only 5th and 95th percentiles will appear in the legend
+    # ax.legend()  # Only 5th and 95th percentiles will appear in the legend
     ax.grid(True, linestyle='--', alpha=0.3)
+    if log_scale:
+        ax.set_yscale('log')
     return fig
 
-def plot_volatility(returns, asset_name=None, window=30):
+def plot_volatility(returns, asset_name=None, window=30, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     if isinstance(returns, pd.Series):
@@ -231,10 +233,12 @@ def plot_volatility(returns, asset_name=None, window=30):
     ax.set_ylabel(f'{window}-day Volatility')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
+    if log_scale:
+        ax.set_yscale('log')
     return fig
 
 # New Price Chart
-def plot_price_chart(coins, currency='USD', start_date=None, end_date=None):
+def plot_price_chart(coins, currency='USD', start_date=None, end_date=None, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     for coin in coins:
@@ -245,27 +249,32 @@ def plot_price_chart(coins, currency='USD', start_date=None, end_date=None):
     ax.set_ylabel(f'Price ({currency})')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
+    if log_scale:
+        ax.set_yscale('log')
     return fig
 
-# New Returns vs Volatility Chart
-def plot_returns_vs_volatility(returns, version):
+# Updated Returns vs Volatility (Rolling 30-day)
+def plot_returns_vs_volatility(returns, version, window=30, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     if version == 'v2':
-        ann_rets = ct.annualize_rets(returns, 365)
-        ann_vols = ct.annualize_vol(returns, 365)
         for coin in returns.columns:
-            ax.scatter(ann_vols[coin], ann_rets[coin], label=coin)
-    else:  # v3
-        ann_rets = ct.annualize_rets_v3(returns, 365)
-        ann_vols = ct.annualize_vol_v3(returns, 365)
+            roll_ret = returns[coin].rolling(window).mean() * 365  # Annualized rolling return
+            roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)  # Annualized rolling volatility
+            ax.plot(roll_vol, roll_ret, label=coin)
+    else:
         for coin in returns.keys():
-            ax.scatter(ann_vols[coin], ann_rets[coin], label=coin)
-    ax.set_title('Annualized Returns vs Volatility')
+            roll_ret = returns[coin].rolling(window).mean() * 365
+            roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)
+            ax.plot(roll_vol, roll_ret, label=coin)
+    ax.set_title(f'Rolling {window}-Day Returns vs Volatility (Annualized)')
     ax.set_xlabel('Annualized Volatility')
     ax.set_ylabel('Annualized Return')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
+    if log_scale:
+        ax.set_xscale('log')
+        ax.set_yscale('log')
     return fig
 
 def main():
@@ -346,29 +355,32 @@ def main():
         # for plots
         for plot in plot_options:
             st.subheader(plot)
+            log_scale = st.checkbox("Log Scale", value=False, key=f"log_{plot}")
             if plot == "Efficient Frontier":
-                fig = plot_efficient_frontier(er, cov, risk_free_rate)
+                fig = plot_efficient_frontier(er, cov, risk_free_rate, log_scale)
             elif plot == "Correlation Matrix":
-                fig = plot_correlation_matrix(returns, version)
+                fig = plot_correlation_matrix(returns, version, log_scale)
             elif plot == "Volatility":
                 asset = st.selectbox("Select Asset for Volatility", ['Portfolio'] + coins, key=f"vol_{plot}")
                 port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
-                fig = plot_volatility(port_returns, asset)
-            elif plot == "Distribution":  # Added back
+                fig = plot_volatility(port_returns, asset, log_scale=log_scale)
+            elif plot == "Distribution":
                 asset = st.selectbox("Select Asset for Distribution", ['Portfolio'] + coins, key=f"dist_{plot}")
                 port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
-                fig = plot_returns_distribution(port_returns, asset)
+                fig = plot_returns_distribution(port_returns, asset, log_scale=log_scale)
             elif plot == "VaR/CVaR":
                 asset = st.selectbox("Select Asset for VaR/CVaR", ['Portfolio'] + coins, key=f"var_{plot}")
                 port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
                 rolling = st.checkbox("Show Rolling VaR/CVaR", False, key=f"roll_{plot}")
                 window = st.slider("Rolling Window (days)", 10, 100, 30, key=f"win_{plot}") if rolling else None
-                fig = plot_var_cvar(port_returns, rolling, window)
+                fig = plot_var_cvar(port_returns, rolling, window, log_scale=log_scale)
             elif plot == "Monte Carlo":
                 n_scenarios = st.slider("Number of Scenarios", 50, 500, 100, key=f"scen_{plot}")
                 n_years = st.slider("Years", 1, 5, 1, key=f"yrs_{plot}")
                 port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1)
-                fig = plot_monte_carlo(port_returns, n_scenarios, n_years)
+                fig = plot_monte_carlo(port_returns, n_scenarios, n_years, log_scale=log_scale)
+            elif plot == "Returns vs Volatility":
+                fig = plot_returns_vs_volatility(returns, version, log_scale=log_scale)
             st.pyplot(fig, use_container_width=True)
 
     # New Price Analysis Tab
@@ -376,11 +388,13 @@ def main():
         st.header("Price Analysis")
         currency = st.selectbox("Select Currency", ["USD", "BTC"], index=0)
         st.subheader(f"Price vs {currency}")
-        fig = plot_price_chart(coins, currency, start_date, end_date)
+        log_scale = st.checkbox("Log Scale", value=False, key="price_log")
+        fig = plot_price_chart(coins, currency, start_date, end_date, log_scale)
         st.pyplot(fig, use_container_width=True)
         
         st.subheader("Returns vs Volatility")
-        fig = plot_returns_vs_volatility(returns, version)
+        log_scale = st.checkbox("Log Scale", value=False, key="rv_log")
+        fig = plot_returns_vs_volatility(returns, version, log_scale=log_scale)
         st.pyplot(fig, use_container_width=True)
 
     with tab3:
