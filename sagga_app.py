@@ -54,15 +54,21 @@ def validate_crypto_symbols(symbols):
 
 # Add caching decorator before the existing display_weights function
 @st.cache_data(ttl=3600)
-def fetch_crypto_data(coins, version='v3'):
+@st.cache_data(ttl=3600)
+def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5):
     if version == 'v2':
-        return cct.get_normal_returns_v2(coins)
+        returns = cct.get_normal_returns_v2(coins)
+        if clean_outliers:
+            returns = ct.clean_dataframe(returns, z_threshold=z_threshold)
     elif version == 'v3':
-        return cct.get_normal_returns_v3(coins)
+        returns = cct.get_normal_returns_v3(coins)
+        if clean_outliers:
+            returns = ct.clean_dict(returns, z_threshold=z_threshold)
     else:
         raise ValueError("Unsupported version. Use 'v2' or 'v3'.")
+    return returns
 
-def display_weights(weights, returns, method_name, version):
+def display_weights(weights, returns, method_name, version, risk_free_rate):
     weights_df = pd.DataFrame({'Cryptocurrency': weights.index, 'Weight': weights.values * 100})
     weights_df['Weight'] = weights_df['Weight'].map("{:.2f}%".format)
     
@@ -74,15 +80,18 @@ def display_weights(weights, returns, method_name, version):
         cov = returns.cov() * 365
         port_ret = ct.portfolio_return(weights, er)
         port_vol = ct.portfolio_vol(weights, cov)
-        summary = ct.summary_stats(returns, riskfree_rate=0.03)
+        summary = ct.summary_stats(returns, riskfree_rate=risk_free_rate)
     elif version == 'v3':
         er = ct.annualize_rets_v3(returns, 365)
         cov = ct.cov_v3(returns).astype(float) * 365
         port_ret = ct.portfolio_return(weights, er)
         port_vol = ct.portfolio_vol(weights, cov)
-        summary = pd.DataFrame(index=weights.index)
+        # Summary stats for individual coins
+        summary_data = {}
         for coin in returns:
-            summary.loc[coin] = ct.summary_stats(returns[coin].to_frame(coin)).iloc[0]
+            stats = ct.summary_stats(returns[coin].to_frame(coin), riskfree_rate=0.03)
+            summary_data[coin] = stats.iloc[0]
+        summary = pd.DataFrame(summary_data).T
 
     st.write(f"**{method_name} Portfolio Metrics**")
     st.write(f"Annualized Portfolio Return: {port_ret:.4f}")
@@ -216,7 +225,7 @@ def main():
                             er = ct.annualize_rets(returns, 365)
                             cov = returns.cov() * 365
                             weights = pd.Series(ct.gmv(cov), index=coins)
-                        display_weights(weights, returns, "Global Minimum Variance", version)
+                        display_weights(weights, returns, "Global Minimum Variance", version, risk_free_rate)
 
             with col2:
                 if st.button("Calculate MSR Weights"):
