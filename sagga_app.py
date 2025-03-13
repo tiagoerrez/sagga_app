@@ -242,12 +242,12 @@ def plot_volatility(returns, asset_name=None, window=30, log_scale=False):
     return fig
 
 # New Price Chart
-def plot_price_chart(coins, currency='USD', start_date=None, end_date=None, log_scale=False):
+def plot_price_chart(coins, currency='USD', selected_coin=None, start_date=None, end_date=None, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
-    for coin in coins:
-        prices = cct.get_historical_v2([coin], currency=currency).loc[start_date:end_date, f'{coin}']
-        prices.plot(ax=ax, label=coin)
+    if selected_coin:
+        prices = cct.get_historical_v2([selected_coin], currency=currency).loc[start_date:end_date, f'{selected_coin} Price']
+        prices.plot(ax=ax, label=selected_coin)
     ax.set_title(f'Price vs {currency}')
     ax.set_xlabel('Date')
     ax.set_ylabel(f'Price ({currency})')
