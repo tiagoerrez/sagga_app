@@ -54,7 +54,6 @@ def validate_crypto_symbols(symbols):
 
 # Add caching decorator before the existing display_weights function
 @st.cache_data(ttl=3600)
-@st.cache_data(ttl=3600)
 def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5):
     if version == 'v2':
         returns = cct.get_normal_returns_v2(coins)
@@ -178,13 +177,17 @@ def plot_var_cvar(returns, rolling=False, window=30):
         var = ct.var_historic(returns, level=5, window=window)  # Use historic VaR for simplicity
         cvar = ct.cvar_historic(returns, level=5, window=window)
         var.plot(ax=ax, label='Rolling VaR (5%)', color='red')
-        cvar.plot(ax=ax, label='Rolling CVaR (5%)', color='orange')
+        cvar.plot(ax=ax, label='Rolling CVaR (5%)', color='orange')#
+        current_var = var.iloc[-1]
+        current_cvar = cvar.iloc[-1]
     else:
         var = ct.var_historic(returns, level=5)
         cvar = ct.cvar_historic(returns, level=5)
         ax.axhline(var, color='red', label=f'VaR (5%): {var:.4f}', linestyle='--')
         ax.axhline(cvar, color='orange', label=f'CVaR (5%): {cvar:.4f}', linestyle='--')
-    ax.set_title('Returns vs VaR/CVaR')
+        current_var = var
+        current_cvar = cvar
+    ax.set_title(f'Returns vs VaR/CVaR - Current VaR: {current_var:.4f}, CVaR: {current_cvar:.4f}')
     ax.set_xlabel('Date')
     ax.set_ylabel('Returns')
     ax.legend()
@@ -192,15 +195,23 @@ def plot_var_cvar(returns, rolling=False, window=30):
     return fig
 
 def plot_monte_carlo(returns, n_scenarios=100, n_years=1):
+    plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     mu = returns.mean() * 365
     sigma = returns.std() * np.sqrt(365)
     sim = ct.gbm(n_years=n_years, n_scenarios=n_scenarios, mu=mu, sigma=sigma, steps_per_year=365)
+    
+    # Plot all simulations with no label to exclude from legend
     sim.plot(ax=ax, legend=False, alpha=0.3, color='cyan')
+    
+    # Plot only 5th and 95th percentiles with explicit labels for legend
     ax.plot(sim.quantile(0.05, axis=1), color='red', label='5th Percentile')
     ax.plot(sim.quantile(0.95, axis=1), color='green', label='95th Percentile')
+    
     ax.set_title('Monte Carlo Simulation with Confidence Intervals')
-    ax.legend()
+    ax.set_xlabel('Time (days)')
+    ax.set_ylabel('Price')
+    ax.legend()  # Only 5th and 95th percentiles will appear in the legend
     ax.grid(True, linestyle='--', alpha=0.3)
     return fig
 
@@ -208,14 +219,51 @@ def plot_volatility(returns, asset_name=None, window=30):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     if isinstance(returns, pd.Series):
-        vol = returns.rolling(window).std() * np.sqrt(365)  # Annualized volatility
+        vol = returns.rolling(window).std() # * np.sqrt(365)  # Annualized volatility
         vol.plot(ax=ax, color='cyan', label=f'{asset_name} Volatility')
+        current_vol = vol.iloc[-1]
     else:
-        vol = returns.mean(axis=1).rolling(window).std() * np.sqrt(365)
+        vol = returns.mean(axis=1).rolling(window).std() # * np.sqrt(365)
         vol.plot(ax=ax, color='cyan', label='Portfolio Volatility')
-    ax.set_title(f"{'Portfolio' if asset_name is None else asset_name} Rolling Volatility (window={window})")
+        current_vol = vol.iloc[-1]
+    ax.set_title(f"{'Portfolio' if asset_name is None else asset_name} Rolling Volatility (window={window}) - Current: {current_vol:.4f}")
     ax.set_xlabel('Date')
-    ax.set_ylabel('Annualized Volatility')
+    ax.set_ylabel(f'{window}-day Volatility')
+    ax.legend()
+    ax.grid(True, linestyle='--', alpha=0.3)
+    return fig
+
+# New Price Chart
+def plot_price_chart(coins, currency='USD', start_date=None, end_date=None):
+    plt.style.use('dark_background')
+    fig, ax = plt.subplots(figsize=(8, 4))
+    for coin in coins:
+        prices = cct.get_historical_v2([coin], currency=currency).loc[start_date:end_date, f'{coin}']
+        prices.plot(ax=ax, label=coin)
+    ax.set_title(f'Price vs {currency}')
+    ax.set_xlabel('Date')
+    ax.set_ylabel(f'Price ({currency})')
+    ax.legend()
+    ax.grid(True, linestyle='--', alpha=0.3)
+    return fig
+
+# New Returns vs Volatility Chart
+def plot_returns_vs_volatility(returns, version):
+    plt.style.use('dark_background')
+    fig, ax = plt.subplots(figsize=(8, 4))
+    if version == 'v2':
+        ann_rets = ct.annualize_rets(returns, 365)
+        ann_vols = ct.annualize_vol(returns, 365)
+        for coin in returns.columns:
+            ax.scatter(ann_vols[coin], ann_rets[coin], label=coin)
+    else:  # v3
+        ann_rets = ct.annualize_rets_v3(returns, 365)
+        ann_vols = ct.annualize_vol_v3(returns, 365)
+        for coin in returns.keys():
+            ax.scatter(ann_vols[coin], ann_rets[coin], label=coin)
+    ax.set_title('Annualized Returns vs Volatility')
+    ax.set_xlabel('Annualized Volatility')
+    ax.set_ylabel('Annualized Return')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
     return fig
@@ -233,13 +281,18 @@ def main():
         clean_outliers = st.checkbox("Clean Outliers", value=False)
         z_threshold = st.slider("Z-Threshold for Outliers", 1.0, 10.0, 5.0, 0.1) if clean_outliers else None
         
+        # Date Filter
+        st.header("Date Range")
+        start_date = st.date_input("Start Date", value=pd.to_datetime("2021-01-01"))
+        end_date = st.date_input("End Date", value=pd.to_datetime("2025-03-13"))
+        
         st.header("Visualization Options")
         plot_options = st.multiselect("Select Plots", 
-                                      ["Efficient Frontier", "Correlation Matrix", "Volatility", "VaR/CVaR", "Monte Carlo"],
+                                      ["Efficient Frontier", "Correlation Matrix", "Volatility", "Distribution", "VaR/CVaR", "Monte Carlo"],
                                       default=["Efficient Frontier"])
 
     # Main content with tabs
-    tab1, tab2 = st.tabs(["Portfolio Analysis", "About"])
+    tab1, tab2, tab3 = st.tabs(["Portfolio Analysis", "Price Analysis", "About"])
 
     with tab1:
         coins = [coin.strip().upper() for coin in crypto_input.split(",") if coin.strip()]
@@ -290,7 +343,7 @@ def main():
             metrics = ct.summary_stats(port_returns.to_frame('Portfolio'), riskfree_rate=risk_free_rate)
             st.dataframe(metrics)
 
-        # Plots
+        # for plots
         for plot in plot_options:
             st.subheader(plot)
             if plot == "Efficient Frontier":
@@ -301,6 +354,10 @@ def main():
                 asset = st.selectbox("Select Asset for Volatility", ['Portfolio'] + coins, key=f"vol_{plot}")
                 port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
                 fig = plot_volatility(port_returns, asset)
+            elif plot == "Distribution":  # Added back
+                asset = st.selectbox("Select Asset for Distribution", ['Portfolio'] + coins, key=f"dist_{plot}")
+                port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
+                fig = plot_returns_distribution(port_returns, asset)
             elif plot == "VaR/CVaR":
                 asset = st.selectbox("Select Asset for VaR/CVaR", ['Portfolio'] + coins, key=f"var_{plot}")
                 port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
@@ -314,7 +371,19 @@ def main():
                 fig = plot_monte_carlo(port_returns, n_scenarios, n_years)
             st.pyplot(fig, use_container_width=True)
 
+    # New Price Analysis Tab
     with tab2:
+        st.header("Price Analysis")
+        currency = st.selectbox("Select Currency", ["USD", "BTC"], index=0)
+        st.subheader(f"Price vs {currency}")
+        fig = plot_price_chart(coins, currency, start_date, end_date)
+        st.pyplot(fig, use_container_width=True)
+        
+        st.subheader("Returns vs Volatility")
+        fig = plot_returns_vs_volatility(returns, version)
+        st.pyplot(fig, use_container_width=True)
+
+    with tab3:
         st.header("About Portfolio Optimization")
         st.write("""
         This dashboard implements:
