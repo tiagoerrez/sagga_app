@@ -202,7 +202,11 @@ def plot_monte_carlo(returns, n_scenarios=100, n_years=1, log_scale=False):
     sim = ct.gbm(n_years=n_years, n_scenarios=n_scenarios, mu=mu, sigma=sigma, steps_per_year=365)
     
     # Plot all simulations with no label to exclude from legend
-    sim.plot(ax=ax, legend=False, alpha=0.3, color='cyan')
+    sim.plot(ax=ax, legend=False, alpha=0.3, color='cyan', label=None)
+
+    # # Plot simulations manually to control legend
+    # for i in range(n_scenarios):
+    #     ax.plot(sim[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
     
     # Plot only 5th and 95th percentiles with explicit labels for legend
     ax.plot(sim.quantile(0.05, axis=1), color='red', label='5th Percentile')
@@ -253,20 +257,31 @@ def plot_price_chart(coins, currency='USD', start_date=None, end_date=None, log_
         ax.set_yscale('log')
     return fig
 
-# Updated Returns vs Volatility (Rolling 30-day)
+# Updated Returns vs Volatility (Scatter with Transparency)
 def plot_returns_vs_volatility(returns, version, window=30, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
+    colors = ['cyan', 'yellow', 'purple']  # Colors for BTC, ETH, XRP
     if version == 'v2':
-        for coin in returns.columns:
-            roll_ret = returns[coin].rolling(window).mean() * 365  # Annualized rolling return
-            roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)  # Annualized rolling volatility
-            ax.plot(roll_vol, roll_ret, label=coin)
-    else:
-        for coin in returns.keys():
+        for i, coin in enumerate(returns.columns):
             roll_ret = returns[coin].rolling(window).mean() * 365
             roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)
-            ax.plot(roll_vol, roll_ret, label=coin)
+            # Scatter plot with transparency
+            ax.scatter(roll_vol, roll_ret, alpha=0.2, color=colors[i], label=coin, s=10)
+            # Add a trend line (rolling mean of the scatter points)
+            df = pd.DataFrame({'vol': roll_vol, 'ret': roll_ret}).dropna()
+            trend_vol = df['vol'].rolling(50, min_periods=1).mean()
+            trend_ret = df['ret'].rolling(50, min_periods=1).mean()
+            ax.plot(trend_vol, trend_ret, color=colors[i], alpha=0.8, linewidth=2)
+    else:
+        for i, coin in enumerate(returns.keys()):
+            roll_ret = returns[coin].rolling(window).mean() * 365
+            roll_vol = returns[coin].rolling(window).std() * np.sqrt(365)
+            ax.scatter(roll_vol, roll_ret, alpha=0.2, color=colors[i], label=coin, s=10)
+            df = pd.DataFrame({'vol': roll_vol, 'ret': roll_ret}).dropna()
+            trend_vol = df['vol'].rolling(50, min_periods=1).mean()
+            trend_ret = df['ret'].rolling(50, min_periods=1).mean()
+            ax.plot(trend_vol, trend_ret, color=colors[i], alpha=0.8, linewidth=2)
     ax.set_title(f'Rolling {window}-Day Returns vs Volatility (Annualized)')
     ax.set_xlabel('Annualized Volatility')
     ax.set_ylabel('Annualized Return')
@@ -387,7 +402,8 @@ def main():
     with tab2:
         st.header("Price Analysis")
         currency = st.selectbox("Select Currency", ["USD", "BTC"], index=0)
-        st.subheader(f"Price vs {currency}")
+        selected_coin = st.selectbox("Select Coin", coins, key="price_coin_select")  # Added coin filter
+        st.subheader(f"Price vs {currency} for {selected_coin}")
         log_scale = st.checkbox("Log Scale", value=False, key="price_log")
         fig = plot_price_chart(coins, currency, start_date, end_date, log_scale)
         st.pyplot(fig, use_container_width=True)
