@@ -223,7 +223,7 @@ def plot_volatility(returns, asset_name=None, window=30):
 def main():
     st.title("Crypto Portfolio Optimizer")
     
-    # Sidebar
+# Sidebar
     with st.sidebar:
         st.header("Portfolio Inputs")
         crypto_input = st.text_area("Enter cryptocurrency symbols (comma-separated)", "BTC, ETH, XRP")
@@ -249,23 +249,26 @@ def main():
         
         returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold)
         
+        # Compute er and cov once, outside button logic
+        if version == 'v2':
+            er = ct.annualize_rets(returns, 365)
+            cov = returns.cov() * 365
+        else:  # v3
+            er = ct.annualize_rets_v3(returns, 365)
+            cov = ct.cov_v3(returns).astype(float) * 365
+
         # Weight calculation buttons
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("Calculate GMV Weights"):
-                # GMV logic here
-                weights = ct.get_gmv_weights(coins, version) if version == 'v3' else pd.Series(ct.gmv(returns.cov() * 365), index=coins)
+                weights = ct.get_gmv_weights(coins, version) if version == 'v3' else pd.Series(ct.gmv(cov), index=coins)
                 display_weights(weights, returns, "Global Minimum Variance", version, risk_free_rate)
         with col2:
             if st.button("Calculate MSR Weights"):
-                # MSR logic here
-                er = ct.annualize_rets(returns, 365) if version == 'v2' else ct.annualize_rets_v3(returns, 365)
-                cov = returns.cov() * 365 if version == 'v2' else ct.cov_v3(returns).astype(float) * 365
                 weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
                 display_weights(weights, returns, "Maximum Sharpe Ratio", version, risk_free_rate)
         with col3:
             if custom_weights and st.button("Use Custom Weights"):
-                # Custom weights logic here
                 weights = np.array([float(w.strip()) for w in custom_weights.split(',')])
                 if len(weights) == len(coins) and abs(sum(weights) - 1) < 1e-6:
                     weights = pd.Series(weights, index=coins)
@@ -277,10 +280,8 @@ def main():
         st.subheader("Portfolio Metrics")
         method = st.selectbox("Select Portfolio", ["GMV", "MSR", "Custom"])
         if method == "GMV":
-            weights = ct.get_gmv_weights(coins, version) if version == 'v3' else pd.Series(ct.gmv(returns.cov() * 365), index=coins)
+            weights = ct.get_gmv_weights(coins, version) if version == 'v3' else pd.Series(ct.gmv(cov), index=coins)
         elif method == "MSR":
-            er = ct.annualize_rets(returns, 365) if version == 'v2' else ct.annualize_rets_v3(returns, 365)
-            cov = returns.cov() * 365 if version == 'v2' else ct.cov_v3(returns).astype(float) * 365
             weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
         else:
             weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else None
@@ -289,6 +290,7 @@ def main():
             metrics = ct.summary_stats(port_returns.to_frame('Portfolio'), riskfree_rate=risk_free_rate)
             st.dataframe(metrics)
 
+        # Plots
         for plot in plot_options:
             st.subheader(plot)
             if plot == "Efficient Frontier":
