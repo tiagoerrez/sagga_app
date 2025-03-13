@@ -269,7 +269,7 @@ def plot_price_chart(historical_data, coins, currency='USD', selected_coin=None,
     return fig
 
 # Updated Returns vs Volatility (Scatter with Transparency)
-def plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=0.03, log_scale=False):
+def plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=0.3, start_date=None, end_date=None, log_scale=False):
     """
     Plot the rolling Sharpe ratio (risk-adjusted return) for each asset over time.
     
@@ -412,8 +412,6 @@ def main():
                 n_years = st.slider("Years", 1, 5, 1, key=f"yrs_{plot}")
                 port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1)
                 fig = plot_monte_carlo(port_returns, n_scenarios, n_years, log_scale=log_scale)
-            elif plot == "Returns vs Volatility":
-                fig = plot_risk_adjusted_returns(returns, version, log_scale=log_scale)
             st.pyplot(fig, use_container_width=True)
 
     # New Price Analysis Tab
@@ -429,7 +427,7 @@ def main():
         
         st.subheader("Returns vs Volatility")
         log_scale = st.checkbox("Log Scale", value=False, key="rv_log")
-        fig = plot_risk_adjusted_returns(returns, version, log_scale=log_scale)
+        fig = plot_risk_adjusted_returns(returns, version, risk_free_rate=risk_free_rate, start_date=start_date, end_date=end_date, log_scale=log_scale)
         st.pyplot(fig, use_container_width=True)
 
     with tab3:
