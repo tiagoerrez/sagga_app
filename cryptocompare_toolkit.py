@@ -3,6 +3,7 @@ import cryptocompare as cc
 import pandas as pd
 import numpy as np
 
+
 # Get the API key
 API_KEY = 'a61cf20c127429ce4b9a79fd70470ac5acf7667914fb53b2a9f8abfe5ccaea7a'
 
@@ -22,7 +23,11 @@ def get_coin_list():
 
 
 def get_historical(coins, currency='USD', **kwargs):
-
+    """
+    Get historical prices for a list of coins.
+    DataFrame index is based on the oldest crypto-asset on the list.
+    For coins that have no historical price for the oldest period, values are replaced to 0.
+    """
     HISTORICAL_DF = {}
 
     for coin in coins:
@@ -48,6 +53,10 @@ def get_historical(coins, currency='USD', **kwargs):
 
 
 def get_historical_v2(coins, **kwargs):
+    """
+    Get historical prices for a list of crypto-assets.
+    Date index starts with earliest common date between the assets on the list.
+    """
     
     HISTORICAL_DF = {}
 
@@ -76,7 +85,7 @@ def get_historical_v2(coins, **kwargs):
     return combined_prices_df
 
 
-def get_historical_v31(coins, **kwargs):
+def get_historical_v3_old(coins, **kwargs):
 
     historical_df = {}
 
@@ -102,6 +111,11 @@ def get_historical_v31(coins, **kwargs):
 
 
 def get_historical_v3(coins, currency='USD', **kwargs):
+    """
+    Get historical prices for a list of crypto-assets.
+    Gets the maximum historical data for each crypto-asset on the list.
+    Returns: Dictionary of DataFrame for each cryptocurrency historical data.
+    """
     
     coins_df = {}
 
@@ -139,7 +153,6 @@ def get_normal_returns(coins, **kwargs):
     returns.fillna(0, inplace=True)
     return returns
 
-
 # Normal returns for an individual coin cleaned, excluding 0% returns
 
 def get_returns(coins, **kwargs):
@@ -173,4 +186,3 @@ def get_normal_returns_v3(coins, period=1, **kwargs):
         returns[coin] = returns_df
 
     return returns
-
