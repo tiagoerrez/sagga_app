@@ -107,7 +107,7 @@ def corr_v3(returns_v3):
                 corr = returns_v3[crypto1].corr(returns_v3[crypto2])
                 corr_matrix_df.at[crypto1, crypto2] = corr
                 corr_matrix_df.at[crypto2, crypto1] = corr # Correlation is symmetric
-    return corr_matrix_df
+    return corr_matrix_df.astype(float)
 
 # -------------------------------------------------------------------------------------------------------------------
 
