@@ -242,12 +242,18 @@ def plot_volatility(returns, asset_name=None, window=30, log_scale=False):
     return fig
 
 # New Price Chart
-def plot_price_chart(coins, currency='USD', selected_coin=None, start_date=None, end_date=None, log_scale=False):
+def plot_price_chart(coins, currency='USD', selected_coin=None ,start_date=None, end_date=None, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
-    if selected_coin:
-        prices = cct.get_historical_v2([selected_coin], currency=currency).loc[start_date:end_date, f'{selected_coin} Price']
+    
+    if selected_coin is None:
+        for coin in coins:
+            prices = cct.get_historical_v2([coin], currency=currency).loc[start_date:end_date, f'{coin}']
+            prices.plot(ax=ax, label=coin)
+    else:
+        prices = cct.get_historical_v2(coins, currency=currency).loc[start_date:end_date, f'{selected_coin}']
         prices.plot(ax=ax, label=selected_coin)
+
     ax.set_title(f'Price vs {currency}')
     ax.set_xlabel('Date')
     ax.set_ylabel(f'Price ({currency})')
@@ -405,7 +411,7 @@ def main():
         selected_coin = st.selectbox("Select Coin", coins, key="price_coin_select")  # Added coin filter
         st.subheader(f"Price vs {currency} for {selected_coin}")
         log_scale = st.checkbox("Log Scale", value=False, key="price_log")
-        fig = plot_price_chart(coins, currency, start_date, end_date, log_scale)
+        fig = plot_price_chart(coins, currency, selected_coin, start_date, end_date, log_scale)
         st.pyplot(fig, use_container_width=True)
         
         st.subheader("Returns vs Volatility")
