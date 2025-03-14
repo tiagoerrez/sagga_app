@@ -429,7 +429,7 @@ def main():
             return
         
         with st.spinner("Fetching returns data (USD)..."):
-            returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold, start_date, end_date)
+            returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold, start_date, end_date, currency='USD')
         
         # Compute er and cov once, outside button logic
         if version == 'v2':
