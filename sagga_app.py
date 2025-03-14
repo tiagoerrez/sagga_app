@@ -153,10 +153,11 @@ def plot_returns_distribution(returns, version, weights, coins, asset_name=None,
     fig, ax = plt.subplots(figsize=(8, 4))
     if asset_name == 'Portfolio':
         if version == 'v2':
-            data = ct.portfolio_return(weights, returns)
+            weights = weights.reindex(returns.columns).fillna(0).values
+            data = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)
         else:  # v3
-            data = pd.Series([ct.portfolio_return(weights.values, pd.Series([returns[coin][i] for coin in returns]).values) 
-                              for i in range(len(returns[coins[0]]))], index=returns[coins[0]].index)
+            data = pd.Series([ct.portfolio_return(weights.values, np.array([returns[coin][i] for coin in coins])) 
+                                              for i in range(len(returns[coins[0]]))], index=returns[coins[0]].index)
     else:
         data = returns[asset_name]
     
@@ -427,9 +428,13 @@ def main():
         
         if weights is not None:
             if version == 'v2':
-                port_returns = ct.portfolio_return(weights, returns)  # Use weights directly with DataFrame
+                # ensure weights align with returns columns
+                weights = weights.reindex(returns.columns).fillna(0).values # convert to Numpy array aligned with returns
+                port_returns = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)  # Use weights directly with DataFrame
+
             else:  # v3
-                port_returns = pd.Series([ct.portfolio_return(weights.values, returns[coin].values) for coin in returns], index=returns.keys()).mean()
+                port_returns = pd.Series([ct.portfolio_return(weights.values, np.array([returns[coin][i] for coin in coins])) 
+                                          for i in range(len(returns[coins[0]]))], index=returns[coins[0]].index)
             metrics = ct.summary_stats(port_returns.to_frame('Portfolio'), riskfree_rate=risk_free_rate)
             st.dataframe(metrics)
 
@@ -452,9 +457,11 @@ def main():
             # Calculate portfolio returns
             if asset == 'Portfolio':
                 if version == 'v2':
-                    port_returns = ct.portfolio_return(weights, returns)
+                    weights = weights.reindex(returns.columns).fillna(0).values
+                    port_returns = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)
                 else:  # v3
-                    port_returns = pd.Series([ct.portfolio_return(weights.values, pd.Series(returns[coin]).values) for coin in coins], index=returns[coins[0]].index).mean()
+                    port_returns = pd.Series([ct.portfolio_return(weights.values, np.array([returns[coin][i] for coin in coins])) 
+                                              for i in range(len(returns[coins[0]]))], index=returns[coins[0]].index)
             else:
                 port_returns = returns[asset]  # Individual asset returns
 
