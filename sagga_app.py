@@ -73,7 +73,7 @@ def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5, 
 
 @st.cache_data(ttl=3600)
 def get_gmv_weights_cached(coins, version='v3'):
-    return ct.get_gmv_weights_cached(coins, version)
+    return ct.get_gmv_weights(coins, version)
 
 @st.cache_data(ttl=3600)
 def get_msr_weights_cached(risk_free_rate, er, cov, coins):
