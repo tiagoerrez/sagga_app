@@ -223,7 +223,7 @@ def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=
 
     # Plot simulations manually to control legend
     for i in range(n_scenarios):
-        ax.plot(sim.index, sim.iloc[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
+        ax.plot(sim.iloc[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
     
     # Plot only 5th and 95th percentiles with explicit labels for legend
     perc_5 = sim.quantile(0.05, axis=1)
@@ -487,14 +487,21 @@ def main():
     with tab2:
         st.header("Price Analysis")
         currency = st.selectbox("Select Currency", ["USD", "BTC"], index=0)
+        selected_coin = st.selectbox("Select Coin", coins + ["All"], key="price_coin_select")
 
         # Fetch historical data based on version
         if version == 'v2':
             historical_data = cct.get_historical_v2(coins, currency=currency)
         else:  # v3
             historical_data = cct.get_historical_v3(coins, currency=currency)  # Returns dict of DataFrames
+
+        if version == 'v2':
+            r = cct.get_normal_returns_v2(coins, currency=currency)
+            r = pd.Series(r[selected_coin])
+        else: #v3
+            r = cct.get_normal_returns_v3(coins, currency=currency)
+            r = pd.Series(r[selected_coin])
         
-        selected_coin = st.selectbox("Select Coin", coins + ["All"], key="price_coin_select")
         st.subheader(f"Price vs {currency}" + (f" for {selected_coin}" if selected_coin != "All" else ""))
         log_scale = st.checkbox("Log Scale", value=False, key="price_log")
         fig = plot_price_chart(historical_data, coins, version, currency, None if selected_coin == "All" else selected_coin, start_date, end_date, log_scale)
@@ -503,7 +510,7 @@ def main():
         # In the "Price Analysis" tab, after "Returns Dsitrbution":
         st.subheader("Returns Distribution")
         log_scale = st.checkbox("Log Scale", value=False, key="dist_log")
-        fig = plot_returns_distribution(historical_data, selected_coin, log_scale=log_scale)
+        fig = plot_returns_distribution(r, selected_coin, log_scale=log_scale)
         st.pyplot(fig, use_container_width=True)
         
         st.subheader("Risk-Adjusted Returns")
