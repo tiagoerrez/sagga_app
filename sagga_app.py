@@ -147,16 +147,33 @@ def plot_correlation_matrix(returns, version):
     return fig
 
 # Updated Distribution Plot (removed returns plot)
-def plot_returns_distribution(returns, asset_name=None, log_scale=False):
+def plot_returns_distribution(returns, version, weights, coins, asset_name=None, log_scale=False):
+    
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
-    if isinstance(returns, pd.Series):
-        sns.histplot(returns.dropna(), bins=50, ax=ax, color='cyan', stat='density', label='Actual')
+    if asset_name == 'Portfolio':
+        if version == 'v2':
+            data = ct.portfolio_return(weights, returns)
+        else:  # v3
+            data = pd.Series([ct.portfolio_return(weights.values, pd.Series([returns[coin][i] for coin in returns]).values) 
+                              for i in range(len(returns[coins[0]]))], index=returns[coins[0]].index)
     else:
-        sns.histplot(returns.mean(axis=1).dropna(), bins=50, ax=ax, color='cyan', stat='density', label='Actual')
+        data = returns[asset_name]
+    
+    sns.histplot(data.dropna(), bins=50, ax=ax, color='cyan', stat='density', label='Actual')
+    mean = data.mean()
+    std = data.std()
+
     x = np.linspace(returns.min(), returns.max(), 100)
     ax.plot(x, norm.pdf(x, returns.mean(), returns.std()), 'r-', label='Normal')
     ax.plot(x, t.pdf(x, 5, returns.mean(), returns.std()), 'g--', label='t-Student (df=5)')
+    ax.axvline(mean + std, color='green', linestyle='--', label='1 Std')
+    ax.axvline(mean - std, color='green', linestyle='--')
+    ax.axvline(mean + 2*std, color='orange', linestyle='--', label='2 Std')
+    ax.axvline(mean - 2*std, color='orange', linestyle='--')
+    ax.axvline(mean + norm.ppf(0.975)*std, color='purple', linestyle=':', label='Z=2')
+    ax.axvline(mean - norm.ppf(0.975)*std, color='purple', linestyle=':')
+
     ax.set_title(f"{'Portfolio' if asset_name is None else asset_name} Returns Distribution")
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
@@ -172,15 +189,15 @@ def plot_var_cvar(returns, rolling=False, window=30, log_scale=False):
     
     returns.plot(ax=ax, color='cyan', alpha=0.5, label='Returns')
     if rolling:
-        var = ct.var_historic(returns, level=5, window=window)  # Use historic VaR for simplicity
-        cvar = ct.cvar_historic(returns, level=5, window=window)
+        var = ct.var_gaussian(returns, level=5, modified=True, window=window)  # Gaussian VaR with Cornish-Fisher
+        cvar = ct.cvar_gaussian(returns, level=5, modified=True, window=window) # Gaussian CVaR with Cornish-Fisher
         var.plot(ax=ax, label='Rolling VaR (5%)', color='red')
         cvar.plot(ax=ax, label='Rolling CVaR (5%)', color='orange')#
         current_var = var.iloc[-1]
         current_cvar = cvar.iloc[-1]
     else:
-        var = ct.var_historic(returns, level=5)
-        cvar = ct.cvar_historic(returns, level=5)
+        var = ct.var_gaussian(returns, level=5, modified=True) # Static Gaussian VaR
+        cvar = ct.cvar_gaussian(returns, level=5, modified=True) # Static Gaussian CVaR
         ax.axhline(var, color='red', label=f'VaR (5%): {var:.4f}', linestyle='--')
         ax.axhline(cvar, color='orange', label=f'CVaR (5%): {cvar:.4f}', linestyle='--')
         current_var = var
@@ -194,7 +211,7 @@ def plot_var_cvar(returns, rolling=False, window=30, log_scale=False):
         ax.set_yscale('log')
     return fig
 
-def plot_monte_carlo(returns, n_scenarios=100, n_years=1, log_scale=False):
+def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     mu = returns.mean() * 365
@@ -209,13 +226,16 @@ def plot_monte_carlo(returns, n_scenarios=100, n_years=1, log_scale=False):
     #     ax.plot(sim[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
     
     # Plot only 5th and 95th percentiles with explicit labels for legend
-    ax.plot(sim.quantile(0.05, axis=1), color='red', label='5th Percentile')
-    ax.plot(sim.quantile(0.95, axis=1), color='green', label='95th Percentile')
+    perc_5 = sim.quantile(0.05, axis=1)
+    perc_95 = sim.quantile(0.95, axis=1)
+    ax.plot(perc_5, color='red', label=f'5th Percentile (Latest: {perc_5.iloc[-1]:.2f})')
+    ax.plot(perc_95, color='green', label=f'95th Percentile (Latest: {perc_95.iloc[-1]:.2f})')
     
-    ax.set_title('Monte Carlo Simulation with Confidence Intervals')
+    title = f"Monte Carlo Simulation - {asset_name if asset_name else 'Portfolio'}"
+    ax.set_title(title)
     ax.set_xlabel('Time (days)')
     ax.set_ylabel('Price')
-    # ax.legend()  # Only 5th and 95th percentiles will appear in the legend
+    ax.legend()  # Only 5th and 95th percentiles will appear in the legend
     ax.grid(True, linestyle='--', alpha=0.3)
     if log_scale:
         ax.set_yscale('log')
@@ -243,18 +263,28 @@ def plot_volatility(returns, asset_name=None, window=30, log_scale=False):
 
 # New Price Chart
 # Updated plot_price_chart to use pre-fetched data
-def plot_price_chart(historical_data, coins, currency='USD', selected_coin=None, start_date=None, end_date=None, log_scale=False):
+def plot_price_chart(historical_data, coins, version, currency='USD', selected_coin=None, start_date=None, end_date=None, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     
     try:
-        if selected_coin is None:
-            for coin in coins:
-                prices = historical_data.loc[start_date:end_date, f'{coin}']
-                prices.plot(ax=ax, label=coin)
-        else:
-            prices = historical_data.loc[start_date:end_date, f'{selected_coin}']
-            prices.plot(ax=ax, label=selected_coin)
+        if version == 'v2':
+            if selected_coin is None:
+                for coin in coins:
+                    prices = historical_data.loc[start_date:end_date, f'{coin}']
+                    prices.plot(ax=ax, label=coin)
+            else:
+                prices = historical_data.loc[start_date:end_date, f'{selected_coin}']
+                prices.plot(ax=ax, label=selected_coin)
+
+        else: #v3
+            if selected_coin is None:
+                for coin in coins:
+                    prices = historical_data[coin].loc[start_date:end_date]
+                    prices.plot(ax=ax, label=coin)
+            else:
+                prices = historical_data[selected_coin].loc[start_date:end_date]
+                prices.plot(ax=ax, label=selected_coin)
 
         ax.set_title(f'Price vs {currency}')
         ax.set_xlabel('Date')
@@ -284,7 +314,9 @@ def plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=0.03,
     """
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
-    colors = ['cyan', 'yellow', 'purple']  # Colors for BTC, ETH, XRP
+
+    # expanded color palette for more assets
+    colors = ['cyan', 'yellow', 'purple', 'green', 'orange', 'pink', 'blue', 'red', 'lime', 'magenta']
     
     try:
         if version == 'v2':
@@ -329,7 +361,7 @@ def main():
         risk_free_rate = st.slider("Risk-free rate (%)", 0.0, 10.0, 3.0, 0.1) / 100
         version = st.selectbox("Returns Version", ['v2', 'v3'], index=1)
         custom_weights = st.text_input("Custom Weights (comma-separated, sum to 1)", "", help="e.g., 0.4,0.3,0.3")
-        clean_outliers = st.checkbox("Clean Outliers", value=False)
+        clean_outliers = st.checkbox("Remove Outliers", value=True)
         z_threshold = st.slider("Z-Threshold for Outliers", 1.0, 10.0, 5.0, 0.1) if clean_outliers else None
         
         # Date Filter
@@ -365,7 +397,7 @@ def main():
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("Calculate GMV Weights"):
-                weights = ct.get_gmv_weights(coins, version) if version == 'v3' else pd.Series(ct.gmv(cov), index=coins)
+                weights = ct.get_gmv_weights(coins, version)
                 display_weights(weights, returns, "Global Minimum Variance", version, risk_free_rate)
         with col2:
             if st.button("Calculate MSR Weights"):
@@ -383,14 +415,21 @@ def main():
         # Portfolio Metrics
         st.subheader("Portfolio Metrics")
         method = st.selectbox("Select Portfolio", ["GMV", "MSR", "Custom"])
+
         if method == "GMV":
-            weights = ct.get_gmv_weights(coins, version) if version == 'v3' else pd.Series(ct.gmv(cov), index=coins)
+            weights = ct.get_gmv_weights(coins, version)
+
         elif method == "MSR":
             weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
+
         else:
             weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else None
+        
         if weights is not None:
-            port_returns = (returns @ weights) if version == 'v2' else pd.concat([returns[coin] * weights[coin] for coin in returns], axis=1).sum(axis=1)
+            if version == 'v2':
+                port_returns = ct.portfolio_return(weights, returns)  # Use weights directly with DataFrame
+            else:  # v3
+                port_returns = pd.Series([ct.portfolio_return(weights.values, returns[coin].values) for coin in returns], index=returns.keys()).mean()
             metrics = ct.summary_stats(port_returns.to_frame('Portfolio'), riskfree_rate=risk_free_rate)
             st.dataframe(metrics)
 
@@ -398,28 +437,43 @@ def main():
         for plot in plot_options:
             st.subheader(plot)
             log_scale = st.checkbox("Log Scale", value=False, key=f"log_{plot}")
+            asset_key = f"asset_{plot}" # unique key for each plot's asset selector
+            asset = st.selectbox("Select Asset for Plot", ['Portfolio'] + coins, key=asset_key)
+
+            # Determine weights based on selected method
+            method = st.selectbox("Select Portfolio Method", ["GMV", "MSR", "Custom"], key=f"method_{plot}")
+            if method == "GMV":
+                weights = ct.get_gmv_weights(coins, version)
+            elif method == "MSR":
+                weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
+            else:  # Custom
+                weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else pd.Series(np.repeat(1/len(coins), len(coins)), index=coins)
+            
+            # Calculate portfolio returns
+            if asset == 'Portfolio':
+                if version == 'v2':
+                    port_returns = ct.portfolio_return(weights, returns)
+                else:  # v3
+                    port_returns = pd.Series([ct.portfolio_return(weights.values, pd.Series(returns[coin]).values) for coin in coins], index=returns[coins[0]].index).mean()
+            else:
+                port_returns = returns[asset]  # Individual asset returns
+
             if plot == "Efficient Frontier":
                 fig = plot_efficient_frontier(er, cov, risk_free_rate, log_scale)
             elif plot == "Correlation Matrix":
                 fig = plot_correlation_matrix(returns, version)
+
             elif plot == "Volatility":
-                asset = st.selectbox("Select Asset for Volatility", ['Portfolio'] + coins, key=f"vol_{plot}")
-                port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
                 fig = plot_volatility(port_returns, asset, log_scale=log_scale)
             elif plot == "Distribution":
-                asset = st.selectbox("Select Asset for Distribution", ['Portfolio'] + coins, key=f"dist_{plot}")
-                port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
-                fig = plot_returns_distribution(port_returns, asset, log_scale=log_scale)
+                fig = plot_returns_distribution(port_returns, version, weights, coins, asset, log_scale=log_scale)
             elif plot == "VaR/CVaR":
-                asset = st.selectbox("Select Asset for VaR/CVaR", ['Portfolio'] + coins, key=f"var_{plot}")
-                port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1) if asset == 'Portfolio' else returns[asset]
                 rolling = st.checkbox("Show Rolling VaR/CVaR", False, key=f"roll_{plot}")
                 window = st.slider("Rolling Window (days)", 10, 100, 30, key=f"win_{plot}") if rolling else None
                 fig = plot_var_cvar(port_returns, rolling, window, log_scale=log_scale)
             elif plot == "Monte Carlo":
                 n_scenarios = st.slider("Number of Scenarios", 50, 500, 100, key=f"scen_{plot}")
                 n_years = st.slider("Years", 1, 5, 1, key=f"yrs_{plot}")
-                port_returns = returns.mean(axis=1) if version == 'v2' else pd.concat([returns[coin] for coin in coins], axis=1).mean(axis=1)
                 fig = plot_monte_carlo(port_returns, n_scenarios, n_years, log_scale=log_scale)
             st.pyplot(fig, use_container_width=True)
 
@@ -427,16 +481,38 @@ def main():
     with tab2:
         st.header("Price Analysis")
         currency = st.selectbox("Select Currency", ["USD", "BTC"], index=0)
-        historical_data = cct.get_historical_v2(coins, currency=currency)  # Fetch once
+
+        # Fetch historical data based on version
+        if version == 'v2':
+            historical_data = cct.get_historical_v2(coins, currency=currency)
+        else:  # v3
+            historical_data = cct.get_historical_v3(coins, currency=currency)  # Returns dict of DataFrames
+        
         selected_coin = st.selectbox("Select Coin", coins + ["All"], key="price_coin_select")
         st.subheader(f"Price vs {currency}" + (f" for {selected_coin}" if selected_coin != "All" else ""))
         log_scale = st.checkbox("Log Scale", value=False, key="price_log")
-        fig = plot_price_chart(historical_data, coins, currency, None if selected_coin == "All" else selected_coin, start_date, end_date, log_scale)
+        fig = plot_price_chart(historical_data, coins, version, currency, None if selected_coin == "All" else selected_coin, start_date, end_date, log_scale)
         st.pyplot(fig, use_container_width=True)
         
-        st.subheader("Returns vs Volatility")
+        st.subheader("Risk-Adjusted Returns")
         log_scale = st.checkbox("Log Scale", value=False, key="rv_log")
         fig = plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=risk_free_rate, start_date=start_date, end_date=end_date, log_scale=log_scale)
+        st.pyplot(fig, use_container_width=True)
+
+        # In the "Price Analysis" tab, after "Returns vs Volatility":
+        st.subheader("Returns Distribution")
+        log_scale = st.checkbox("Log Scale", value=False, key="dist_log")
+        asset = st.selectbox("Select Asset", ['Portfolio'] + coins, key="dist_asset")
+        method = st.selectbox("Select Portfolio Method", ["GMV", "MSR", "Custom"], key="dist_method")
+        
+        if method == "GMV":
+            weights = ct.get_gmv_weights(coins, version)
+        elif method == "MSR":
+            weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
+        else:  # Custom
+            weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else pd.Series(np.repeat(1/len(coins), len(coins)), index=coins)
+        
+        fig = plot_returns_distribution(returns, version, weights, coins, asset, log_scale=log_scale)
         st.pyplot(fig, use_container_width=True)
 
     with tab3:
