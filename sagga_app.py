@@ -223,7 +223,7 @@ def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=
 
     # Plot simulations manually to control legend
     for i in range(n_scenarios):
-        ax.plot(sim[:, i], color='cyan', alpha=0.3, label=None, legend=False)  # No label for individual paths
+        ax.plot(sim.index, sim[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
     
     # Plot only 5th and 95th percentiles with explicit labels for legend
     perc_5 = sim.quantile(0.05, axis=1)
