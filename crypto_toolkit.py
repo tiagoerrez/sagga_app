@@ -425,7 +425,7 @@ def cvar_gaussian(r, level=5, modified=False, days=1, window=None):
         # Calculate CVaR
         # For Gaussian distribution, CVaR can be derived as follows:
         # cvar = -(r.mean() + (stats.norm.pdf(z) / (1 - level / 100)) * r.std(ddof=0))
-        cvar = -(r.mean() + r.std(ddof=0) * np.sqrt(days) * stats.norm.pdf(z) / ( (1-level) / 100))
+        cvar = -(r.mean() + r.std(ddof=0) * np.sqrt(days) * stats.norm.pdf(z) / ( 1 - level / 100))
         return cvar
     
     else:
