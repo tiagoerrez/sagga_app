@@ -217,13 +217,13 @@ def plot_var_cvar(returns, rolling=False, window=30, log_scale=False):
 def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
-    mu = returns.mean() * 365
-    sigma = returns.std() * np.sqrt(365)
+    mu = returns.mean() # * 365 # annualized returns
+    sigma = returns.std() # * np.sqrt(365) # annualized volatility
     sim = ct.gbm(n_years=n_years, n_scenarios=n_scenarios, mu=mu, sigma=sigma, steps_per_year=365)
 
     # Plot simulations manually to control legend
     for i in range(n_scenarios):
-        ax.plot(sim.index, sim[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
+        ax.plot(sim.index, sim.iloc[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
     
     # Plot only 5th and 95th percentiles with explicit labels for legend
     perc_5 = sim.quantile(0.05, axis=1)
