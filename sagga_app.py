@@ -489,6 +489,8 @@ def main():
         currency = st.selectbox("Select Currency", ["USD", "BTC"], index=0)
         selected_coin = st.selectbox("Select Coin", coins + ["All"], key="price_coin_select")
 
+        returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold)
+
         # Fetch historical data based on version
         if version == 'v2':
             historical_data = cct.get_historical_v2(coins, currency=currency)
@@ -496,11 +498,10 @@ def main():
             historical_data = cct.get_historical_v3(coins, currency=currency)  # Returns dict of DataFrames
 
         if version == 'v2':
-            r = cct.get_normal_returns_v2(coins, currency=currency)
-            r = pd.Series(r[selected_coin])
+            r = pd.Series(returns[selected_coin])
+
         else: #v3
-            r = cct.get_normal_returns_v3(coins, currency=currency)
-            r = pd.Series(r[selected_coin])
+            r = pd.Series(returns[selected_coin])
         
         st.subheader(f"Price vs {currency}" + (f" for {selected_coin}" if selected_coin != "All" else ""))
         log_scale = st.checkbox("Log Scale", value=False, key="price_log")
