@@ -192,20 +192,20 @@ def plot_var_cvar(returns, rolling=False, window=30, log_scale=False):
     
     returns.plot(ax=ax, color='cyan', alpha=0.5, label='Returns')
     if rolling:
-        var = -(ct.var_gaussian(returns, level=5, modified=True, window=window))  # Gaussian VaR with Cornish-Fisher
-        cvar = -(ct.cvar_gaussian(returns, level=5, modified=True, window=window)) # Gaussian CVaR with Cornish-Fisher
+        var = ct.var_gaussian(returns, level=5, modified=True, window=window)  # Gaussian VaR with Cornish-Fisher
+        cvar = ct.cvar_gaussian(returns, level=5, modified=True, window=window) # Gaussian CVaR with Cornish-Fisher
         var.plot(ax=ax, label='Rolling VaR (5%)', color='red')
         cvar.plot(ax=ax, label='Rolling CVaR (5%)', color='orange')#
         current_var = var.iloc[-1]
         current_cvar = cvar.iloc[-1]
     else:
-        var = -(ct.var_gaussian(returns, level=5, modified=True)) # Static Gaussian VaR
-        cvar = -(ct.cvar_gaussian(returns, level=5, modified=True)) # Static Gaussian CVaR
+        var = ct.var_gaussian(returns, level=5, modified=True) # Static Gaussian VaR
+        cvar = ct.cvar_gaussian(returns, level=5, modified=True) # Static Gaussian CVaR
         ax.axhline(var, color='red', label=f'VaR (5%): {var:.4f}', linestyle='--')
         ax.axhline(cvar, color='orange', label=f'CVaR (5%): {cvar:.4f}', linestyle='--')
         current_var = var
         current_cvar = cvar
-    ax.set_title(f'Returns vs VaR/CVaR - Current VaR: {current_var:.4f}, CVaR: {current_cvar:.4f}')
+    ax.set_title(f'Returns vs Potential Loss (VaR/CVaR) - Current VaR: {current_var:.4f}, CVaR: {current_cvar:.4f}')
     ax.set_xlabel('Date')
     ax.set_ylabel('Returns')
     ax.legend()
@@ -217,8 +217,8 @@ def plot_var_cvar(returns, rolling=False, window=30, log_scale=False):
 def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
-    mu = returns.mean() # * 365 # annualized returns
-    sigma = returns.std() # * np.sqrt(365) # annualized volatility
+    mu = ct.annualize_rets(returns) # annualized returns
+    sigma = ct.annualize_vol(returns) # * np.sqrt(365) # annualized volatility
     sim = ct.gbm(n_years=n_years, n_scenarios=n_scenarios, mu=mu, sigma=sigma, steps_per_year=365)
 
     # Plot simulations manually to control legend
@@ -476,7 +476,16 @@ def main():
             elif plot == "VaR/CVaR":
                 rolling = st.checkbox("Show Rolling VaR/CVaR", False, key=f"roll_{plot}")
                 window = st.slider("Rolling Window (days)", 10, 100, 30, key=f"win_{plot}") if rolling else None
-                fig = plot_var_cvar(port_returns, rolling, window, log_scale=log_scale)
+                days = st.number_input(
+                    "Forecast Horizon (days)",
+                    min_value=1,
+                    max_value=365,
+                    value=1,
+                    step=1,
+                    key=f"days_{plot}",
+                    help="Enter the number of days in the future to estimate potential losses (VaR/CVaR)."
+                )
+                fig = plot_var_cvar(port_returns, rolling, window, days, log_scale=log_scale)
             elif plot == "Monte Carlo":
                 n_scenarios = st.slider("Number of Scenarios", 50, 500, 100, key=f"scen_{plot}")
                 n_years = st.slider("Years", 1, 5, 1, key=f"yrs_{plot}")
