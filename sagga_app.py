@@ -76,10 +76,9 @@ def get_gmv_weights_cached(coins, version='v3'):
     return ct.get_gmv_weights(coins, version)
 
 @st.cache_data(ttl=3600)
-def get_msr_weights_cached(risk_free_rate, er, cov, coins):
+def get_msr_weights_cached(risk_free_rate, er, cov):
     weights = ct.msr(risk_free_rate, er, cov)
-    # Convert coins to tuple to make it hashable
-    return pd.Series(weights, index=tuple(coins) if isinstance(coins, pd.Index) else coins)
+    return weights
 
 @st.cache_data(ttl=3600)
 def compute_summary_stats(returns, riskfree_rate, version):
@@ -153,7 +152,7 @@ def plot_efficient_frontier(er, cov, riskfree_rate, log_scale=False):
     vols = [ct.portfolio_vol(w, cov) for w in weights]
     
     sns.scatterplot(x=vols, y=rets, ax=ax, color='cyan', label='Efficient Frontier', s=50)
-    w_msr = get_msr_weights_cached(riskfree_rate, er, cov, er.index)
+    w_msr = get_msr_weights_cached(riskfree_rate, er, cov)
     r_msr = ct.portfolio_return(w_msr, er)
     vol_msr = ct.portfolio_vol(w_msr, cov)
     ax.plot([0, vol_msr], [riskfree_rate, r_msr], color='green', linestyle='--', label='CML')
@@ -443,7 +442,7 @@ def main():
                 display_weights(weights, returns, "Global Minimum Variance", version, risk_free_rate)
         with col2:
             if st.button("Calculate MSR Weights"):
-                weights = pd.Series(get_msr_weights_cached(risk_free_rate, er, cov, coins), index=coins)
+                weights = pd.Series(get_msr_weights_cached(risk_free_rate, er, cov), index=coins)
                 display_weights(weights, returns, "Maximum Sharpe Ratio", version, risk_free_rate)
         with col3:
             if custom_weights and st.button("Use Custom Weights"):
@@ -491,7 +490,7 @@ def main():
             if method == "GMV":
                 weights = get_gmv_weights_cached(coins, version)
             elif method == "MSR":
-                weights = pd.Series(get_msr_weights_cached(risk_free_rate, er, cov, coins), index=coins)
+                weights = get_msr_weights_cached(risk_free_rate, er, cov, coins)
             else:  # Custom
                 weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else pd.Series(np.repeat(1/len(coins), len(coins)), index=coins)
             
