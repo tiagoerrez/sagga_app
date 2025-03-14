@@ -217,8 +217,8 @@ def plot_var_cvar(returns, rolling=False, window=30, log_scale=False):
 def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
-    mu = ct.annualize_rets(returns) # annualized returns
-    sigma = ct.annualize_vol(returns) # * np.sqrt(365) # annualized volatility
+    mu = ct.annualize_rets(returns, 365) # annualized returns
+    sigma = ct.annualize_vol(returns, 365) # * np.sqrt(365) # annualized volatility
     sim = ct.gbm(n_years=n_years, n_scenarios=n_scenarios, mu=mu, sigma=sigma, steps_per_year=365)
 
     # Plot simulations manually to control legend
