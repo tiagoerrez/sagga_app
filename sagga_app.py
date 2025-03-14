@@ -461,7 +461,7 @@ def main():
             weights = get_gmv_weights_cached(coins, version)
 
         elif method == "MSR":
-            weights = pd.Series(get_msr_weights_cached(risk_free_rate, er, cov), index=coins)
+            weights = get_msr_weights_cached(risk_free_rate, er, cov, coins)
 
         else:
             weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else None
