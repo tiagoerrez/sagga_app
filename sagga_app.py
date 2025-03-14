@@ -58,13 +58,13 @@ def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5, 
     if version == 'v2':
         returns = cct.get_normal_returns_v2(coins, currency=currency)
         if start_date and end_date:
-            returns = returns.iloc[start_date:end_date]
+            returns = returns.loc[start_date:end_date]
         if clean_outliers:
             returns = ct.clean_dataframe(returns, z_threshold=z_threshold)
     elif version == 'v3':
         returns = cct.get_normal_returns_v3(coins, currency=currency)
         if start_date and end_date:
-            returns = returns.iloc[start_date:end_date]
+            returns = returns.loc[start_date:end_date]
         if clean_outliers:
             returns = ct.clean_dict(returns, z_threshold=z_threshold)
     else:
