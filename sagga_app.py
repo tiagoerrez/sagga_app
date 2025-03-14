@@ -192,15 +192,15 @@ def plot_var_cvar(returns, rolling=False, window=30, log_scale=False):
     
     returns.plot(ax=ax, color='cyan', alpha=0.5, label='Returns')
     if rolling:
-        var = ct.var_gaussian(returns, level=5, modified=True, window=window)  # Gaussian VaR with Cornish-Fisher
-        cvar = ct.cvar_gaussian(returns, level=5, modified=True, window=window) # Gaussian CVaR with Cornish-Fisher
+        var = -(ct.var_gaussian(returns, level=5, modified=True, window=window))  # Gaussian VaR with Cornish-Fisher
+        cvar = -(ct.cvar_gaussian(returns, level=5, modified=True, window=window)) # Gaussian CVaR with Cornish-Fisher
         var.plot(ax=ax, label='Rolling VaR (5%)', color='red')
         cvar.plot(ax=ax, label='Rolling CVaR (5%)', color='orange')#
         current_var = var.iloc[-1]
         current_cvar = cvar.iloc[-1]
     else:
-        var = ct.var_gaussian(returns, level=5, modified=True) # Static Gaussian VaR
-        cvar = ct.cvar_gaussian(returns, level=5, modified=True) # Static Gaussian CVaR
+        var = -(ct.var_gaussian(returns, level=5, modified=True)) # Static Gaussian VaR
+        cvar = -(ct.cvar_gaussian(returns, level=5, modified=True)) # Static Gaussian CVaR
         ax.axhline(var, color='red', label=f'VaR (5%): {var:.4f}', linestyle='--')
         ax.axhline(cvar, color='orange', label=f'CVaR (5%): {cvar:.4f}', linestyle='--')
         current_var = var
@@ -222,7 +222,7 @@ def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=
     sim = ct.gbm(n_years=n_years, n_scenarios=n_scenarios, mu=mu, sigma=sigma, steps_per_year=365)
     
     # Plot all simulations with no label to exclude from legend
-    sim.plot(ax=ax, legend=False, alpha=0.3, color='cyan', label=None)
+    sim.plot(ax=ax, legend=False, alpha=0.3, color='cyan')
 
     # # Plot simulations manually to control legend
     # for i in range(n_scenarios):
