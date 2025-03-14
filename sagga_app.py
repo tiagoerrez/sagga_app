@@ -239,7 +239,7 @@ def plot_var_cvar(returns, rolling=False, window=30, days=1, log_scale=False, st
     st.write(f"Returns mean: {returns.mean():.6f}, std: {returns.std():.6f}, min: {returns.min():.6f}, max: {returns.max():.6f}")
     
     returns.plot(ax=ax, color='cyan', alpha=0.5, label='Returns')
-    ax.axhline(mean, color='white', alpha=0.5, label=f'Mean Returns: {mean:.4f}')
+    ax.axhline(mean, color='yellow', style='--', label=f'Mean Returns: {mean:.4f}')
 
     if rolling:
         var = ct.var_gaussian(returns, level=5, modified=True, window=window, days=days)  # Gaussian VaR with Cornish-Fisher
