@@ -225,13 +225,22 @@ def plot_returns_distribution(returns, asset_name=None, log_scale=False):
         ax.set_yscale('log')
     return fig
 
-def plot_var_cvar(returns, rolling=False, window=30, days=1, log_scale=False):
+def plot_var_cvar(returns, rolling=False, window=30, days=1, log_scale=False, start_date=None, end_date=None):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
+    mean = returns.mean()
     if isinstance(returns, pd.DataFrame):
         returns = returns.mean(axis=1)  # Portfolio returns if DataFrame
+
+    if start_date and end_date:
+        returns = returns.loc[start_date:end_date]
+
+    # Debug: Check returns statistics
+    st.write(f"Returns mean: {returns.mean():.6f}, std: {returns.std():.6f}, min: {returns.min():.6f}, max: {returns.max():.6f}")
     
     returns.plot(ax=ax, color='cyan', alpha=0.5, label='Returns')
+    ax.axhline(mean, color='white', alpha=0.5, label=f'Mean Returns: {mean:.4f}')
+
     if rolling:
         var = ct.var_gaussian(returns, level=5, modified=True, window=window, days=days)  # Gaussian VaR with Cornish-Fisher
         cvar = ct.cvar_gaussian(returns, level=5, modified=True, window=window, days=days) # Gaussian CVaR with Cornish-Fisher
@@ -286,14 +295,18 @@ def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=
         ax.set_yscale('log')
     return fig
 
-def plot_volatility(returns, asset_name=None, window=30, log_scale=False):
+def plot_volatility(returns, asset_name=None, window=30, log_scale=False, start_date=None, end_date=None):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     if isinstance(returns, pd.Series):
+        if start_date and end_date:
+            returns = returns.loc[start_date:end_date]
         vol = returns.rolling(window).std() # * np.sqrt(365)  # Annualized volatility
         vol.plot(ax=ax, color='cyan', label=f'{asset_name} Volatility')
         current_vol = vol.iloc[-1]
     else:
+        if start_date and end_date:
+            returns = returns.loc[start_date:end_date]
         vol = returns.mean(axis=1).rolling(window).std() # * np.sqrt(365)
         vol.plot(ax=ax, color='cyan', label='Portfolio Volatility')
         current_vol = vol.iloc[-1]
@@ -516,7 +529,7 @@ def main():
                 fig = plot_correlation_matrix(returns, version)
 
             elif plot == "Volatility":
-                fig = plot_volatility(port_returns, asset, log_scale=log_scale)
+                fig = plot_volatility(port_returns, asset, log_scale=log_scale, start_date=start_date, end_date=end_date)
             elif plot == "Distribution":
                 fig = plot_returns_distribution(port_returns, asset, log_scale=log_scale)
             elif plot == "VaR/CVaR":
@@ -531,7 +544,7 @@ def main():
                     key=f"days_{plot}",
                     help="Enter the number of days in the future to estimate potential losses (VaR/CVaR)."
                 )
-                fig = plot_var_cvar(port_returns, rolling, window, days, log_scale=log_scale)
+                fig = plot_var_cvar(port_returns, rolling, window, days, log_scale=log_scale, start_date=start_date, end_date=end_date)
             elif plot == "Monte Carlo":
                 n_scenarios = st.slider("Number of Scenarios", 50, 500, 100, key=f"scen_{plot}")
                 n_years = st.slider("Years", 1, 5, 1, key=f"yrs_{plot}")
