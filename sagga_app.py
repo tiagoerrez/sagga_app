@@ -210,7 +210,7 @@ def plot_returns_distribution(returns, asset_name=None, log_scale=False):
     x = np.linspace(returns.min(), returns.max(), 100)
     ax.plot(x, norm.pdf(x, returns.mean(), returns.std()), 'r-', label='Normal')
     ax.plot(x, t.pdf(x, 5, returns.mean(), returns.std()), 'g--', label='t-Student (df=5)')
-    ax.plot(mean, color='white', linestyle='--', label='mean')
+    ax.axvline(mean, color='white', linestyle='--', label=f'mean: {mean:.4f}')
     ax.axvline(mean + std, color='green', linestyle='--', label='1 Std')
     ax.axvline(mean - std, color='green', linestyle='--')
     ax.axvline(mean + 2*std, color='orange', linestyle='--', label='2 Std')
