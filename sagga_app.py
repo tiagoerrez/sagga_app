@@ -156,8 +156,8 @@ def plot_returns_distribution(returns, version, weights, coins, asset_name=None,
             weights = weights.reindex(returns.columns).fillna(0).values
             data = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)
         else:  # v3
-            data = pd.Series([ct.portfolio_return(weights.values, np.array([returns[coin][i] for coin in coins])) 
-                                              for i in range(len(returns[coins[0]]))], index=returns[coins[0]].index)
+            aligned_returns = pd.DataFrame({coin: returns[coin] for coin in coins}).dropna()
+            data = aligned_returns @ weights.reindex(aligned_returns.columns).fillna(0)
     else:
         data = returns[asset_name]
     
