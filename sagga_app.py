@@ -433,8 +433,8 @@ def main():
                 port_returns = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)  # Use weights directly with DataFrame
 
             else:  # v3
-                port_returns = pd.Series([ct.portfolio_return(weights.values, np.array([returns[coin][i] for coin in coins])) 
-                                          for i in range(len(returns[coins[0]]))], index=returns[coins[0]].index)
+                aligned_returns = pd.DataFrame({coin: returns[coin] for coin in coins}).dropna()
+                port_returns = aligned_returns @ weights.reindex(aligned_returns.columns).fillna(0)
             metrics = ct.summary_stats(port_returns.to_frame('Portfolio'), riskfree_rate=risk_free_rate)
             st.dataframe(metrics)
 
@@ -460,8 +460,8 @@ def main():
                     weights = weights.reindex(returns.columns).fillna(0).values
                     port_returns = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)
                 else:  # v3
-                    port_returns = pd.Series([ct.portfolio_return(weights.values, np.array([returns[coin][i] for coin in coins])) 
-                                              for i in range(len(returns[coins[0]]))], index=returns[coins[0]].index)
+                    aligned_returns = pd.DataFrame({coin: returns[coin] for coin in coins}).dropna()
+                    port_returns = aligned_returns @ weights.reindex(aligned_returns.columns).fillna(0)
             else:
                 port_returns = returns[asset]  # Individual asset returns
 
