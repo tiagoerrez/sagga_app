@@ -210,6 +210,7 @@ def plot_returns_distribution(returns, asset_name=None, log_scale=False):
     x = np.linspace(returns.min(), returns.max(), 100)
     ax.plot(x, norm.pdf(x, returns.mean(), returns.std()), 'r-', label='Normal')
     ax.plot(x, t.pdf(x, 5, returns.mean(), returns.std()), 'g--', label='t-Student (df=5)')
+    ax.plot(mean, color='white', linestyle='--', label='mean')
     ax.axvline(mean + std, color='green', linestyle='--', label='1 Std')
     ax.axvline(mean - std, color='green', linestyle='--')
     ax.axvline(mean + 2*std, color='orange', linestyle='--', label='2 Std')
@@ -254,12 +255,14 @@ def plot_var_cvar(returns, rolling=False, window=30, days=1, log_scale=False):
         ax.set_yscale('log')
     return fig
 
+@st.cache_data(ttl=3600)
 def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=False):
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
     mu = ct.annualize_rets(returns, 365) # annualized returns
     sigma = ct.annualize_vol(returns, 365) # * np.sqrt(365) # annualized volatility
     sim = ct.gbm(n_years=n_years, n_scenarios=n_scenarios, mu=mu, sigma=sigma, steps_per_year=365)
+    mean_trajectory = sim.mean(axis=1) # mean price at each time step
 
     # Plot simulations manually to control legend
     for i in range(n_scenarios):
@@ -270,7 +273,9 @@ def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=
     perc_95 = sim.quantile(0.95, axis=1)
     ax.plot(perc_5, color='red', label=f'5th Percentile (Latest: {perc_5.iloc[-1]:.2f})')
     ax.plot(perc_95, color='green', label=f'95th Percentile (Latest: {perc_95.iloc[-1]:.2f})')
-    
+    ax.plot(mean_trajectory, color='yellow', linewidth=2, label=f"Mean (Latest: {mean_trajectory.iloc[-1]:.2f})")
+    ax.axhline(y=100.0, color='white', linestyle=':', alpha=0.5, label='Initial Price (100)')
+
     title = f"Monte Carlo Simulation - {asset_name if asset_name else 'Portfolio'}"
     ax.set_title(title)
     ax.set_xlabel('Time (days)')
@@ -424,7 +429,7 @@ def main():
             return
         
         with st.spinner("Fetching returns data (USD)..."):
-            returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold, start_date=start_date, end_date=end_date, currency='USD')
+            returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold, start_date, end_date)
         
         # Compute er and cov once, outside button logic
         if version == 'v2':
