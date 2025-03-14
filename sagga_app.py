@@ -223,7 +223,7 @@ def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=
 
     # Plot simulations manually to control legend
     for i in range(n_scenarios):
-        ax.plot(sim.iloc[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
+        ax.plot(sim.index, sim.iloc[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
     
     # Plot only 5th and 95th percentiles with explicit labels for legend
     perc_5 = sim.quantile(0.05, axis=1)
@@ -480,7 +480,7 @@ def main():
             elif plot == "Monte Carlo":
                 n_scenarios = st.slider("Number of Scenarios", 50, 500, 100, key=f"scen_{plot}")
                 n_years = st.slider("Years", 1, 5, 1, key=f"yrs_{plot}")
-                fig = plot_monte_carlo(port_returns, n_scenarios, n_years, log_scale=log_scale)
+                fig = plot_monte_carlo(port_returns, asset, n_scenarios, n_years, log_scale=log_scale)
             st.pyplot(fig, use_container_width=True)
 
     # New Price Analysis Tab
