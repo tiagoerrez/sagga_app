@@ -528,9 +528,9 @@ def main():
             else:  # v3
                 aligned_returns = pd.DataFrame({coin: returns[coin] for coin in coins}).dropna()
                 port_returns = aligned_returns @ weights.reindex(aligned_returns.columns).fillna(0)
-            fig = plot_returns_distribution(port_returns, version, weights, coins, asset, log_scale=log_scale)
+            fig = plot_returns_distribution(port_returns, asset, log_scale=log_scale)
         else:
-            fig = plot_returns_distribution(returns[asset], version, weights, coins, asset, log_scale=log_scale)
+            fig = plot_returns_distribution(returns[asset], asset, log_scale=log_scale)
         st.pyplot(fig, use_container_width=True)
 
     with tab3:
