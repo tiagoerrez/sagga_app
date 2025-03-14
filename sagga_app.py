@@ -147,19 +147,21 @@ def plot_correlation_matrix(returns, version):
     return fig
 
 # Updated Distribution Plot (removed returns plot)
-def plot_returns_distribution(returns, version, weights, coins, asset_name=None, log_scale=False):
+def plot_returns_distribution(returns, asset_name=None, log_scale=False):
     
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(8, 4))
-    if asset_name == 'Portfolio':
-        if version == 'v2':
-            weights = weights.reindex(returns.columns).fillna(0).values
-            data = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)
-        else:  # v3
-            aligned_returns = pd.DataFrame({coin: returns[coin] for coin in coins}).dropna()
-            data = aligned_returns @ weights.reindex(aligned_returns.columns).fillna(0)
-    else:
-        data = returns[asset_name]
+    # if asset_name == 'Portfolio':
+    #     if version == 'v2':
+    #         weights = weights.reindex(returns.columns).fillna(0).values
+    #         data = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)
+    #     else:  # v3
+    #         aligned_returns = pd.DataFrame({coin: returns[coin] for coin in coins}).dropna()
+    #         data = aligned_returns @ weights.reindex(aligned_returns.columns).fillna(0)
+    # else:
+    #     data = returns[asset_name]
+
+    data = returns
     
     sns.histplot(data.dropna(), bins=50, ax=ax, color='cyan', stat='density', label='Actual')
     mean = data.mean()
@@ -473,7 +475,7 @@ def main():
             elif plot == "Volatility":
                 fig = plot_volatility(port_returns, asset, log_scale=log_scale)
             elif plot == "Distribution":
-                fig = plot_returns_distribution(port_returns, version, weights, coins, asset, log_scale=log_scale)
+                fig = plot_returns_distribution(port_returns, asset, log_scale=log_scale)
             elif plot == "VaR/CVaR":
                 rolling = st.checkbox("Show Rolling VaR/CVaR", False, key=f"roll_{plot}")
                 window = st.slider("Rolling Window (days)", 10, 100, 30, key=f"win_{plot}") if rolling else None
@@ -518,8 +520,17 @@ def main():
             weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
         else:  # Custom
             weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else pd.Series(np.repeat(1/len(coins), len(coins)), index=coins)
-        
-        fig = plot_returns_distribution(returns, version, weights, coins, asset, log_scale=log_scale)
+
+        if asset == 'Portfolio':
+            if version == 'v2':
+                weights = weights.reindex(returns.columns).fillna(0).values
+                port_returns = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)
+            else:  # v3
+                aligned_returns = pd.DataFrame({coin: returns[coin] for coin in coins}).dropna()
+                port_returns = aligned_returns @ weights.reindex(aligned_returns.columns).fillna(0)
+            fig = plot_returns_distribution(port_returns, version, weights, coins, asset, log_scale=log_scale)
+        else:
+            fig = plot_returns_distribution(returns[asset], version, weights, coins, asset, log_scale=log_scale)
         st.pyplot(fig, use_container_width=True)
 
     with tab3:
