@@ -54,7 +54,7 @@ def validate_crypto_symbols(symbols):
 
 # Add caching decorator before the existing display_weights function
 @st.cache_data(ttl=3600)
-def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5, currency='USD', start_date=None, end_date=None):
+def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5, start_date=None, end_date=None, currency='USD'):
     if version == 'v2':
         returns = cct.get_normal_returns_v2(coins, currency=currency)
         if start_date and end_date:
