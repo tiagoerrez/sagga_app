@@ -78,7 +78,8 @@ def get_gmv_weights_cached(coins, version='v3'):
 @st.cache_data(ttl=3600)
 def get_msr_weights_cached(risk_free_rate, er, cov, coins):
     weights = ct.msr(risk_free_rate, er, cov)
-    return pd.Series(weights, index=coins)
+    # Convert coins to tuple to make it hashable
+    return pd.Series(weights, index=tuple(coins) if isinstance(coins, pd.Index) else coins)
 
 @st.cache_data(ttl=3600)
 def compute_summary_stats(returns, riskfree_rate, version):
