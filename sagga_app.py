@@ -54,18 +54,56 @@ def validate_crypto_symbols(symbols):
 
 # Add caching decorator before the existing display_weights function
 @st.cache_data(ttl=3600)
-def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5):
+def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5, currency='USD', start_date=None, end_date=None):
     if version == 'v2':
-        returns = cct.get_normal_returns_v2(coins)
+        returns = cct.get_normal_returns_v2(coins, currency=currency)
+        if start_date and end_date:
+            returns = returns.iloc[start_date:end_date]
         if clean_outliers:
             returns = ct.clean_dataframe(returns, z_threshold=z_threshold)
     elif version == 'v3':
-        returns = cct.get_normal_returns_v3(coins)
+        returns = cct.get_normal_returns_v3(coins, currency=currency)
+        if start_date and end_date:
+            returns = returns.iloc[start_date:end_date]
         if clean_outliers:
             returns = ct.clean_dict(returns, z_threshold=z_threshold)
     else:
         raise ValueError("Unsupported version. Use 'v2' or 'v3'.")
     return returns
+
+@st.cache_data(ttl=3600)
+def get_gmv_weights_cached(coins, version='v3'):
+    return ct.get_gmv_weights_cached(coins, version)
+
+@st.cache_data(ttl=3600)
+def get_msr_weights_cached(risk_free_rate, er, cov, coins):
+    weights = ct.msr(risk_free_rate, er, cov)
+    return pd.Series(weights, index=coins)
+
+@st.cache_data(ttl=3600)
+def compute_summary_stats(returns, riskfree_rate, version):
+    if version == 'v2':
+        return ct.summary_stats(returns, riskfree_rate=riskfree_rate)
+    else:  # v3
+        summary_data = {}
+        for coin in returns:
+            stats = ct.summary_stats(returns[coin].to_frame(coin), riskfree_rate=riskfree_rate)
+            summary_data[coin] = stats.iloc[0]
+        return pd.DataFrame(summary_data).T
+    
+@st.cache_data(ttl=3600)
+def fetch_historical_data(coins, version='v3', currency="USD", start_date=None, end_date=None):
+    if version == 'v2':
+        prices = cct.get_historical_v2(coins, currency=currency)
+        if start_date and end_date:
+            prices = prices.loc[start_date:end_date]
+    elif version == 'v3':
+        prices = cct.get_historical_v3(coins, currency=currency)
+        if start_date and end_date:
+            prices = {coin: df.loc[start_date:end_date] for coin, df in prices.items()}
+    else:
+        raise ValueError("Unsupported version. Use 'v2' or 'v3'.")
+    return prices
 
 def display_weights(weights, returns, method_name, version, risk_free_rate):
     weights_df = pd.DataFrame({'Cryptocurrency': weights.index, 'Weight': weights.values * 100})
@@ -73,6 +111,8 @@ def display_weights(weights, returns, method_name, version, risk_free_rate):
     
     # display data frames
     st.dataframe(weights_df)
+
+    summary = compute_summary_stats(returns, risk_free_rate,)
 
     if version == 'v2':
         er = ct.annualize_rets(returns, 365)
@@ -112,7 +152,7 @@ def plot_efficient_frontier(er, cov, riskfree_rate, log_scale=False):
     vols = [ct.portfolio_vol(w, cov) for w in weights]
     
     sns.scatterplot(x=vols, y=rets, ax=ax, color='cyan', label='Efficient Frontier', s=50)
-    w_msr = ct.msr(riskfree_rate, er, cov)
+    w_msr = get_msr_weights_cached(riskfree_rate, er, cov)
     r_msr = ct.portfolio_return(w_msr, er)
     vol_msr = ct.portfolio_vol(w_msr, cov)
     ax.plot([0, vol_msr], [riskfree_rate, r_msr], color='green', linestyle='--', label='CML')
@@ -383,7 +423,8 @@ def main():
             st.error("Please enter at least 2 cryptocurrencies.")
             return
         
-        returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold)
+        with st.spinner("Fetching returns data (USD)..."):
+            returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold, start_date=start_date, end_date=end_date, currency='USD')
         
         # Compute er and cov once, outside button logic
         if version == 'v2':
@@ -397,11 +438,11 @@ def main():
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("Calculate GMV Weights"):
-                weights = ct.get_gmv_weights(coins, version)
+                weights = get_gmv_weights_cached(coins, version)
                 display_weights(weights, returns, "Global Minimum Variance", version, risk_free_rate)
         with col2:
             if st.button("Calculate MSR Weights"):
-                weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
+                weights = pd.Series(get_msr_weights_cached(risk_free_rate, er, cov), index=coins)
                 display_weights(weights, returns, "Maximum Sharpe Ratio", version, risk_free_rate)
         with col3:
             if custom_weights and st.button("Use Custom Weights"):
@@ -417,10 +458,10 @@ def main():
         method = st.selectbox("Select Portfolio", ["GMV", "MSR", "Custom"])
 
         if method == "GMV":
-            weights = ct.get_gmv_weights(coins, version)
+            weights = get_gmv_weights_cached(coins, version)
 
         elif method == "MSR":
-            weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
+            weights = pd.Series(get_msr_weights_cached(risk_free_rate, er, cov), index=coins)
 
         else:
             weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else None
@@ -447,9 +488,9 @@ def main():
             # Determine weights based on selected method
             method = st.selectbox("Select Portfolio Method", ["GMV", "MSR", "Custom"], key=f"method_{plot}")
             if method == "GMV":
-                weights = ct.get_gmv_weights(coins, version)
+                weights = get_gmv_weights_cached(coins, version)
             elif method == "MSR":
-                weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
+                weights = pd.Series(get_msr_weights_cached(risk_free_rate, er, cov), index=coins)
             else:  # Custom
                 weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else pd.Series(np.repeat(1/len(coins), len(coins)), index=coins)
             
@@ -500,17 +541,20 @@ def main():
 
        # returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold)
 
-        # Fetch historical data based on version
+        with st.spinner(f"Fetching historical price data ({currency})..."):
+            historical_data = fetch_historical_data(coins, version, currency, start_date, end_date)
+
+        # Compute returns from historical data for Tab 2 plots
         if version == 'v2':
-            historical_data = cct.get_historical_v2(coins, currency=currency)
+            tab2_r = historical_data.pct_change().dropna()
+            tab2_r = tab2_r.replace([np.inf, -np.inf, -1], np.nan, inplace=True)
+            tab2.fillna(0, inplace=True)
+            r = tab2_r[selected_coin] if selected_coin != "All" else tab2_r.mean(axis=1)
         else:  # v3
-            historical_data = cct.get_historical_v3(coins, currency=currency)  # Returns dict of DataFrames
-
-        if version == 'v2':
-            r = pd.Series(returns[selected_coin])
-
-        else: #v3
-            r = pd.Series(returns[selected_coin])
+            tab2_r = {coin: df.pct_change().dropna() for coin, df in historical_data.items()}
+            tab2_r = tab2_r.replace([np.inf, -np.inf, -1], np.nan, inplace=True)
+            tab2.fillna(0, inplace=True)
+            r = tab2_r[selected_coin] if selected_coin != "All" else pd.DataFrame(tab2_r).mean(axis=1)
         
         st.subheader(f"Price vs {currency}" + (f" for {selected_coin}" if selected_coin != "All" else ""))
         log_scale = st.checkbox("Log Scale", value=False, key="price_log")
@@ -533,9 +577,9 @@ def main():
         # log_scale = st.checkbox("Log Scale", value=False, key="dist_log")
         
         # if method == "GMV":
-        #     weights = ct.get_gmv_weights(coins, version)
+        #     weights = get_gmv_weights_cached(coins, version)
         # elif method == "MSR":
-        #     weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
+        #     weights = pd.Series(get_msr_weights_cached(risk_free_rate, er, cov), index=coins)
         # else:  # Custom
         #     weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else pd.Series(np.repeat(1/len(coins), len(coins)), index=coins)
 
