@@ -112,7 +112,7 @@ def display_weights(weights, returns, method_name, version, risk_free_rate):
     # display data frames
     st.dataframe(weights_df)
 
-    summary = compute_summary_stats(returns, risk_free_rate,)
+    # summary = compute_summary_stats(returns, risk_free_rate,)
 
     if version == 'v2':
         er = ct.annualize_rets(returns, 365)
