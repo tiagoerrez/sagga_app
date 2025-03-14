@@ -220,13 +220,10 @@ def plot_monte_carlo(returns, asset_name, n_scenarios=100, n_years=1, log_scale=
     mu = returns.mean() * 365
     sigma = returns.std() * np.sqrt(365)
     sim = ct.gbm(n_years=n_years, n_scenarios=n_scenarios, mu=mu, sigma=sigma, steps_per_year=365)
-    
-    # Plot all simulations with no label to exclude from legend
-    sim.plot(ax=ax, legend=False, alpha=0.3, color='cyan')
 
-    # # Plot simulations manually to control legend
-    # for i in range(n_scenarios):
-    #     ax.plot(sim[:, i], color='cyan', alpha=0.3, label=None)  # No label for individual paths
+    # Plot simulations manually to control legend
+    for i in range(n_scenarios):
+        ax.plot(sim[:, i], color='cyan', alpha=0.3, label=None, legend=False)  # No label for individual paths
     
     # Plot only 5th and 95th percentiles with explicit labels for legend
     perc_5 = sim.quantile(0.05, axis=1)
@@ -502,36 +499,40 @@ def main():
         log_scale = st.checkbox("Log Scale", value=False, key="price_log")
         fig = plot_price_chart(historical_data, coins, version, currency, None if selected_coin == "All" else selected_coin, start_date, end_date, log_scale)
         st.pyplot(fig, use_container_width=True)
+
+        # In the "Price Analysis" tab, after "Returns Dsitrbution":
+        st.subheader("Returns Distribution")
+        log_scale = st.checkbox("Log Scale", value=False, key="dist_log")
+        fig = plot_returns_distribution(historical_data, selected_coin, log_scale=log_scale)
+        st.pyplot(fig, use_container_width=True)
         
         st.subheader("Risk-Adjusted Returns")
         log_scale = st.checkbox("Log Scale", value=False, key="rv_log")
         fig = plot_risk_adjusted_returns(returns, version, window=30, risk_free_rate=risk_free_rate, start_date=start_date, end_date=end_date, log_scale=log_scale)
         st.pyplot(fig, use_container_width=True)
 
-        # In the "Price Analysis" tab, after "Returns vs Volatility":
-        st.subheader("Returns Distribution")
-        log_scale = st.checkbox("Log Scale", value=False, key="dist_log")
-        asset = st.selectbox("Select Asset", ['Portfolio'] + coins, key="dist_asset")
-        method = st.selectbox("Select Portfolio Method", ["GMV", "MSR", "Custom"], key="dist_method")
+        # # In the "Price Analysis" tab, after "Returns vs Volatility":
+        # st.subheader("Returns Distribution")
+        # log_scale = st.checkbox("Log Scale", value=False, key="dist_log")
         
-        if method == "GMV":
-            weights = ct.get_gmv_weights(coins, version)
-        elif method == "MSR":
-            weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
-        else:  # Custom
-            weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else pd.Series(np.repeat(1/len(coins), len(coins)), index=coins)
+        # if method == "GMV":
+        #     weights = ct.get_gmv_weights(coins, version)
+        # elif method == "MSR":
+        #     weights = pd.Series(ct.msr(risk_free_rate, er, cov), index=coins)
+        # else:  # Custom
+        #     weights = pd.Series([float(w.strip()) for w in custom_weights.split(',')], index=coins) if custom_weights else pd.Series(np.repeat(1/len(coins), len(coins)), index=coins)
 
-        if asset == 'Portfolio':
-            if version == 'v2':
-                weights = weights.reindex(returns.columns).fillna(0).values
-                port_returns = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)
-            else:  # v3
-                aligned_returns = pd.DataFrame({coin: returns[coin] for coin in coins}).dropna()
-                port_returns = aligned_returns @ weights.reindex(aligned_returns.columns).fillna(0)
-            fig = plot_returns_distribution(port_returns, asset, log_scale=log_scale)
-        else:
-            fig = plot_returns_distribution(returns[asset], asset, log_scale=log_scale)
-        st.pyplot(fig, use_container_width=True)
+        # if asset == 'Portfolio':
+        #     if version == 'v2':
+        #         weights = weights.reindex(returns.columns).fillna(0).values
+        #         port_returns = pd.Series(ct.portfolio_return(weights, returns.values.T), index=returns.index)
+        #     else:  # v3
+        #         aligned_returns = pd.DataFrame({coin: returns[coin] for coin in coins}).dropna()
+        #         port_returns = aligned_returns @ weights.reindex(aligned_returns.columns).fillna(0)
+        #     fig = plot_returns_distribution(port_returns, asset, log_scale=log_scale)
+        # else:
+        #     fig = plot_returns_distribution(returns[asset], asset, log_scale=log_scale)
+        # st.pyplot(fig, use_container_width=True)
 
     with tab3:
         st.header("About Portfolio Optimization")
