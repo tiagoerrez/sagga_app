@@ -489,7 +489,7 @@ def main():
         currency = st.selectbox("Select Currency", ["USD", "BTC"], index=0)
         selected_coin = st.selectbox("Select Coin", coins + ["All"], key="price_coin_select")
 
-        returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold)
+       # returns = fetch_crypto_data(coins, version, clean_outliers, z_threshold)
 
         # Fetch historical data based on version
         if version == 'v2':
