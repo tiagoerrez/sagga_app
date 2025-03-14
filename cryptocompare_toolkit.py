@@ -5,7 +5,8 @@ import numpy as np
 
 
 # Get the API key
-API_KEY = 'a61cf20c127429ce4b9a79fd70470ac5acf7667914fb53b2a9f8abfe5ccaea7a'
+# API_KEY = 'a61cf20c127429ce4b9a79fd70470ac5acf7667914fb53b2a9f8abfe5ccaea7a'
+API_KEY = '240bd4736ebc7fd89c4e9755d668da2aa0efe29252e895f18999620916743ab0'
 
 # Set the API key in the cryptocompare object
 cc.cryptocompare._set_api_key_parameter(API_KEY)
