@@ -566,7 +566,7 @@ def main():
         if version == 'v2':
             tab2_r = historical_data.pct_change().dropna()
             tab2_r = tab2_r.replace([np.inf, -np.inf, -1], np.nan, inplace=True)
-            tab2.fillna(0, inplace=True)
+            tab2_r.fillna(0, inplace=True)
             r = tab2_r[selected_coin] if selected_coin != "All" else tab2_r.mean(axis=1)
         else:  # v3
             returns = {}
