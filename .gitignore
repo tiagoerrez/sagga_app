@@ -25,7 +25,7 @@ wheels/
 config.yaml
 
 # Streamlit
-.streamlit
+.streamlit/
 .streamlit/secrets.toml
 
 # Environment
