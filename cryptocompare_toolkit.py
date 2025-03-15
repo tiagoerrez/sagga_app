@@ -2,10 +2,30 @@
 import cryptocompare as cc
 import pandas as pd
 import numpy as np
+import streamlit as st
+import yaml
 
 
-# Get the API key
-API_KEY = 'a61cf20c127429ce4b9a79fd70470ac5acf7667914fb53b2a9f8abfe5ccaea7a'
+def load_api_key_from_yaml(file_path='config.ymal'):
+    try:
+        with open(file_path, 'r') as file:
+            config = yaml.safe_load(file)
+            return config.get('cryptocompare', {}).get('api_key')
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        print(f'Error loading YAML config: {e}')
+        return None
+
+# Try to get the API key from Streamlit secrets first, then fall back to YAML
+try:
+    API_KEY = st.secrets["general"]["CRYPTOCOMPARE_API_KEY"]
+except:
+    # fallback to yaml file
+    API_KEY = load_api_key_from_yaml
+
+if not API_KEY:
+    raise ValueError("API key not found. Please set it in 'config.yaml' or Streamlit secrets")   
 
 # Set the API key in the cryptocompare object
 cc.cryptocompare._set_api_key_parameter(API_KEY)
