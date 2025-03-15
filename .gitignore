@@ -21,7 +21,11 @@ wheels/
 .installed.cfg
 *.egg
 
+# yaml file
+config.yaml
+
 # Streamlit
+.streamlit
 .streamlit/secrets.toml
 
 # Environment
