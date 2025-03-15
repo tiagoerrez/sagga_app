@@ -564,9 +564,11 @@ def main():
 
         # Compute returns from historical data for Tab 2 plots
         if version == 'v2':
-            tab2_r = historical_data.pct_change().dropna()
-            tab2_r = tab2_r.replace([np.inf, -np.inf, -1], np.nan, inplace=True)
-            tab2_r.fillna(0, inplace=True)
+            if historical_data.empty:
+                st.error("No historical data retrieved for the selected coins.")
+                return
+            tab2_r = historical_data.pct_change().dropna().replace([np.inf, -np.inf, -1], np.nan, inplace=True).fillna(0)
+            st.write("Debug: tab2_r", tab2_r.head())
             r = tab2_r[selected_coin] if selected_coin != "All" else tab2_r.mean(axis=1)
         else:  # v3
             returns = {}
