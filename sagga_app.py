@@ -66,7 +66,7 @@ def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5, 
         if start_date and end_date:
             returns = {coin : df.loc[start_date:end_date] for coin, df in returns.items()}
         if clean_outliers:
-            returns = ct.clean_dict(returns, z_threshold=z_threshold)
+            returns = {coin : ct.clean_dataframe(df, z_threshold=z_threshold) for coin, df in returns.items()}
     else:
         raise ValueError("Unsupported version. Use 'v2' or 'v3'.")
     return returns
@@ -105,7 +105,7 @@ def fetch_historical_data(coins, version='v3', currency="USD", start_date=None, 
         raise ValueError("Unsupported version. Use 'v2' or 'v3'.")
     return prices
 
-def display_weights(weights, returns, method_name, version, risk_free_rate):
+def display_weights(weights, returns, method_name, version, risk_free_rate=0.03):
     weights_df = pd.DataFrame({'Cryptocurrency': weights.index, 'Weight': weights.values * 100})
     weights_df['Weight'] = weights_df['Weight'].map("{:.2f}%".format)
     
@@ -115,20 +115,20 @@ def display_weights(weights, returns, method_name, version, risk_free_rate):
     # summary = compute_summary_stats(returns, risk_free_rate,)
 
     if version == 'v2':
-        er = ct.annualize_rets(returns, 365)
+        er = ct.annualize_rets(returns, periods_per_year=365)
         cov = returns.cov() * 365
         port_ret = ct.portfolio_return(weights, er)
         port_vol = ct.portfolio_vol(weights, cov)
         summary = ct.summary_stats(returns, riskfree_rate=risk_free_rate)
     elif version == 'v3':
-        er = ct.annualize_rets_v3(returns, 365)
+        er = ct.annualize_rets_v3(returns, periods_per_year=365)
         cov = ct.cov_v3(returns).astype(float) * 365
         port_ret = ct.portfolio_return(weights, er)
         port_vol = ct.portfolio_vol(weights, cov)
         # Summary stats for individual coins
         summary_data = {}
         for coin in returns:
-            stats = ct.summary_stats(returns[coin].to_frame(coin), riskfree_rate=0.03)
+            stats = ct.summary_stats(returns[coin].to_frame(coin), riskfree_rate=risk_free_rate)
             summary_data[coin] = stats.iloc[0]
         summary = pd.DataFrame(summary_data).T
 

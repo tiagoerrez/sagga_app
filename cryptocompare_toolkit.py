@@ -189,7 +189,7 @@ def get_normal_returns_v2(coins, period=1, **kwargs):
     
     df = get_historical_v2(coins, **kwargs)
 
-    returns = df.pct_change(period=period)
+    returns = df.pct_change(periods=period)
     returns.replace([np.inf, -np.inf, -1], np.nan, inplace=True)
     returns.fillna(0, inplace=True)
     return returns
