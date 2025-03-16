@@ -424,7 +424,7 @@ def main():
         
         # Date Filter
         st.header("Date Range")
-        start_date = st.date_input("Start Date", value=pd.to_datetime("2021-01-01"))
+        start_date = st.date_input("Start Date", value=pd.to_datetime("2020-01-01"))
         end_date = st.date_input("End Date", value=pd.to_datetime("2025-03-13"))
         
         st.header("Visualization Options")
