@@ -204,7 +204,7 @@ def get_normal_returns_v3(coins, period=1, **kwargs):
         # Calculate percentage change and fill NaN values with 0
         returns_df = coin_df.squeeze().pct_change(periods=period)
         returns_df.replace([np.inf, -np.inf, -1], np.nan, inplace=True)
-        returns.fillna(0, inplace=True)
+        returns_df.fillna(0, inplace=True)
         returns[coin] = returns_df
 
     return returns
