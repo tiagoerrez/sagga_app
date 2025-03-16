@@ -63,8 +63,8 @@ def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5, 
             returns = ct.clean_dataframe(returns, z_threshold=z_threshold)
     elif version == 'v3':
         returns = cct.get_normal_returns_v3(coins, currency=currency)
-        # if start_date and end_date:
-            # returns = returns.loc[start_date:end_date]
+        if start_date and end_date:
+            returns = {coin : df.loc[start_date:end_date] for coin, df in returns.items()}
         if clean_outliers:
             returns = ct.clean_dict(returns, z_threshold=z_threshold)
     else:
@@ -72,8 +72,8 @@ def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5, 
     return returns
 
 @st.cache_data(ttl=3600)
-def get_gmv_weights_cached(coins, version='v3'):
-    return ct.get_gmv_weights(coins, version)
+def get_gmv_weights_cached(coins, version='v3', start_date=None, end_date=None):
+    return ct.get_gmv_weights(coins, version, start_date=start_date, end_date=end_date)
 
 @st.cache_data(ttl=3600)
 def get_msr_weights_cached(risk_free_rate, er, cov):

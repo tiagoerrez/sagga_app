@@ -506,7 +506,7 @@ def gmv(cov):
     return msr(0, np.repeat(1, n), cov)
 
 
-def get_gmv_weights(coins, version='v3'):
+def get_gmv_weights(coins, version='v3', start_date=None, end_date=None):
     '''
     Returns the weights of the portfolio that gives the optomized GMV
     given a set of coins.
@@ -516,28 +516,21 @@ def get_gmv_weights(coins, version='v3'):
     
     if version == 'v2':
         e_v2 = cct.get_normal_returns_v2(coins)
+        if start_date and end_date:
+            e_v2 = e_v2.loc[start_date:end_date]
         cov_v2 = e_v2.cov()
         gmv_v2 = gmv(cov_v2)
         
         gmv_results = list(zip(coins, gmv_v2))
         gmv_results = pd.Series(dict(gmv_results)).sort_values(ascending=False).round(5)
         
-        return gmv_results
-
-
-    elif version == 'v4':
-        e_v4 = cct.get_normal_returns_v4(coins)
-        cov_v4 = e_v4.cov()
-        gmv_v4 = gmv(cov_v4)
-        
-        gmv_results = list(zip(coins, gmv_v4))
-        gmv_results = pd.Series(dict(gmv_results)).sort_values(ascending=False).round(5)
-        
-        return gmv_results        
+        return gmv_results      
         
 
     elif version == 'v3':
         e_v3 = cct.get_normal_returns_v3(coins)
+        if start_date and end_date:
+            e_v3 = {coin : df.loc[start_date:end_date] for coin, df in e_v3.items()}
         e_v3_cleaned = clean_dict(e_v3)
         covv3 = cov_v3(e_v3_cleaned)
         gmv_v3 = gmv(covv3)
