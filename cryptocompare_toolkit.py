@@ -185,11 +185,11 @@ def get_returns(coins, **kwargs):
     return returns
 
 
-def get_normal_returns_v2(coins, **kwargs):
+def get_normal_returns_v2(coins, period=1, **kwargs):
     
     df = get_historical_v2(coins, **kwargs)
 
-    returns = df.pct_change()
+    returns = df.pct_change(period=period)
     returns.replace([np.inf, -np.inf, -1], np.nan, inplace=True)
     returns.fillna(0, inplace=True)
     return returns
@@ -202,7 +202,9 @@ def get_normal_returns_v3(coins, period=1, **kwargs):
 
     for coin, coin_df in df_dict.items():
         # Calculate percentage change and fill NaN values with 0
-        returns_df = coin_df.squeeze().pct_change(periods=period).fillna(0)
+        returns_df = coin_df.squeeze().pct_change(periods=period)
+        returns_df.replace([np.inf, -np.inf, -1], np.nan, inplace=True)
+        returns.fillna(0, inplace=True)
         returns[coin] = returns_df
 
     return returns
