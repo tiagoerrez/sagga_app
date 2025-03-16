@@ -54,7 +54,7 @@ def validate_crypto_symbols(symbols):
 
 # Add caching decorator before the existing display_weights function
 @st.cache_data(ttl=3600)
-def fetch_crypto_data(coins, version='v3', clean_outliers=False, z_threshold=5, start_date=None, end_date=None, currency='USD'):
+def fetch_crypto_data(coins, version='v2', clean_outliers=False, z_threshold=5, start_date=None, end_date=None, currency='USD'):
     if version == 'v2':
         returns = cct.get_normal_returns_v2(coins, currency=currency)
         if start_date and end_date:
@@ -115,13 +115,13 @@ def display_weights(weights, returns, method_name, version, risk_free_rate=0.03)
     # summary = compute_summary_stats(returns, risk_free_rate,)
 
     if version == 'v2':
-        er = ct.annualize_rets(returns, periods_per_year=365)
+        er = ct.annualize_rets(returns, 365)
         cov = returns.cov() * 365
         port_ret = ct.portfolio_return(weights, er)
         port_vol = ct.portfolio_vol(weights, cov)
         summary = ct.summary_stats(returns, riskfree_rate=risk_free_rate)
     elif version == 'v3':
-        er = ct.annualize_rets_v3(returns, periods_per_year=365)
+        er = ct.annualize_rets_v3(returns, 365)
         cov = ct.cov_v3(returns).astype(float) * 365
         port_ret = ct.portfolio_return(weights, er)
         port_vol = ct.portfolio_vol(weights, cov)
