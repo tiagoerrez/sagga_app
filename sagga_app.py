@@ -231,9 +231,12 @@ def plot_var_cvar(returns, rolling=False, window=30, days=1, log_scale=False, st
     mean = returns.mean()
     if isinstance(returns, pd.DataFrame):
         returns = returns.mean(axis=1)  # Portfolio returns if DataFrame
-
     if start_date and end_date:
         returns = returns.loc[start_date:end_date]
+
+    # Debug: Check returns index and statistics
+    st.write(f"Returns index range: {returns.index.min()} to {returns.index.max()}")
+    st.write(f"Returns mean: {returns.mean():.6f}, std: {returns.std():.6f}, min: {returns.min():.6f}, max: {returns.max():.6f}")
 
     # Debug: Check returns statistics
     st.write(f"Returns mean: {returns.mean():.6f}, std: {returns.std():.6f}, min: {returns.min():.6f}, max: {returns.max():.6f}")
@@ -244,6 +247,16 @@ def plot_var_cvar(returns, rolling=False, window=30, days=1, log_scale=False, st
     if rolling:
         var = ct.var_gaussian(returns, level=5, modified=True, window=window, days=days)  # Gaussian VaR with Cornish-Fisher
         cvar = ct.cvar_gaussian(returns, level=5, modified=True, window=window, days=days) # Gaussian CVaR with Cornish-Fisher
+
+        # Explicitly filter VaR and CVaR by date range (in case rolling introduces misalignment)
+        if start_date and end_date:
+            var = var.loc[start_date:end_date]
+            cvar = cvar.loc[start_date:end_date]
+
+        # Debug: Check VaR/CVaR index
+        st.write(f"VaR index range: {var.index.min()} to {var.index.max()}")
+        st.write(f"CVaR index range: {cvar.index.min()} to {cvar.index.max()}")
+
         var.plot(ax=ax, label='Rolling VaR (5%)', color='red')
         cvar.plot(ax=ax, label='Rolling CVaR (5%)', color='orange')#
         current_var = var.iloc[-1]
@@ -260,8 +273,14 @@ def plot_var_cvar(returns, rolling=False, window=30, days=1, log_scale=False, st
     ax.set_ylabel('Returns')
     ax.legend()
     ax.grid(True, linestyle='--', alpha=0.3)
+
     if log_scale:
         ax.set_yscale('log')
+
+    # Ensure x-axis uses the correct date range
+    if start_date and end_date:
+        ax.set_xlim(pd.Timestamp(start_date), pd.Timestamp(end_date))
+        
     return fig
 
 @st.cache_data(ttl=3600)
